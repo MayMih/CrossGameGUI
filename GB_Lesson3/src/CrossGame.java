@@ -42,7 +42,7 @@ public class CrossGame
 
     //region 'Поля и константы'
 
-    private static final char EMPTY_CELL_SYMBOL = '□';
+    private static final char EMPTY_CELL_SYMBOL = '.';//'□';
     private static final Scanner _scn = new Scanner(System.in);
     private static final Random _rand = new Random();
 
@@ -64,7 +64,7 @@ public class CrossGame
         {
             System.exit(-1);
         }
-        System.out.println("Выбраны слежующие параметры:");
+        System.out.println("Выбраны следующие параметры:");
         System.out.println(MessageFormat.format("\tРазмер поля: {0}x{0}", _boardSize));
         System.out.printf("\tСложность ИИ: %s (%d)%n%n", _aiLevel, _aiLevel.ordinal());
 
@@ -89,28 +89,28 @@ public class CrossGame
             while (inCorrectInput);
             _playerSymbol = (userSymbol == 'x') || (userSymbol == 'х') ? 'X' : 'O';
             _cpuSymbol = (_playerSymbol == 'X') ? 'O' : 'X';
-
+            //
             _aiLevel = AILevel.Unknown;
-            System.out.println("DEBUG: CPU opponent turned off");
-
+            //
             initBoard(_gameBoard);
             if (_cpuSymbol == 'X')
             {
                 cpuTurn();
             }
-            printBoard(_gameBoard);
+            else
+            {
+                printBoard(_gameBoard);
+            }
             boolean isPlayerWin, isCpuWin;
             do
             {
                 isPlayerWin = playerTurn(_scn);
-                printBoard(_gameBoard);
                 if (isPlayerWin)
                 {
                     System.out.printf("Игра окончена - выиграли \"%s\"!%n", _playerSymbol);
                     break;
                 }
                 isCpuWin = cpuTurn();
-                printBoard(_gameBoard);
                 if (isCpuWin)
                 {
                     System.out.printf("Игра окончена - выиграли \"%s\"!%n", _cpuSymbol);
@@ -118,6 +118,7 @@ public class CrossGame
                 }
             }
             while (!noMoreMoves());
+            _scn.skip(".*\n");
             do
             {
                 System.out.append(System.lineSeparator()).println("Хотите повторить? [Yes(Y), No(N)] (Y):");
@@ -157,7 +158,7 @@ public class CrossGame
     }
     
     /**
-     * Метод хода игрока - заполняет клетку введённую с клавиатуры символом игрока
+     * Метод хода игрока - заполняет клетку введённую с клавиатуры символом игрока (включает вывод доски на консоль)
      *
      * @return - возвращает признак победы
      * */
@@ -166,21 +167,27 @@ public class CrossGame
         int x = 0, y = 0;
         do
         {
-            System.out.println("Введите координаты нового хода (номер строки, затем номер столбца, можно через пробел):");
-            try
+            do
             {
-                x = scn.nextInt();
-                y = scn.nextInt();
+                System.out.println("Введите координаты нового хода (номер строки, затем номер столбца, можно через пробел):");
+                try
+                {
+                    x = scn.nextInt();
+                    y = scn.nextInt();
+                }
+                catch (InputMismatchException ex)
+                {
+                    System.err.println("Вы должны вводить только целые положительные числа!");
+                    scn.skip(".*\n");
+                }
             }
-            catch (InputMismatchException ex)
-            {
-                System.err.print("Вы должны вводить только целые положительные числа!");
-                continue;
-            }
+            // если числа не присвоены, значит пользователь вводил не цифры
+            while (x == 0 || y == 0);
         }
-        while (!isCoordsValid(--x, --y, _gameBoard, EMPTY_CELL_SYMBOL, true));
+        while (!isCoordsValid(--x, --y, _gameBoard, true));
 
         _gameBoard[x][y] = _playerSymbol;
+        printBoard(_gameBoard);
         return checkWin(_playerSymbol);
     }
 
@@ -188,56 +195,49 @@ public class CrossGame
      * Метод проверки признака победы - проверяет нет ли такой линии или диагонали, что полностью заполнена указанным
      *  символом
      * */
-    private static boolean checkWin(char playerSymbol)
+    private static boolean checkWin(char targetSymbol)
     {
-        // сначала проверяем диагонали
-        boolean mainSymbolChanged = false, auxSymbolChanged = false;
-        for (int i = 1; i < _gameBoard.length && !mainSymbolChanged && !auxSymbolChanged; i++)
+        boolean isWinFound = false;
+
+        // сначала проверяем диагонали (но только, если там есть хотя бы один нужный символ - иначе нет смысла)
+
+        if ((_gameBoard[0][0] == targetSymbol) || (_gameBoard[0][_boardSize - 1] == targetSymbol))
         {
-            if (!mainSymbolChanged)
+            boolean isMainFault = false, isAuxFault = false;
+            // сканируем сразу обе диагонали, пока не наткнёмся на несовпадение в обоих диагоналях
+            for (int i = 0; i < _boardSize && (!isAuxFault || !isMainFault); i++)
             {
-                mainSymbolChanged = (_gameBoard[i][i] != _gameBoard[i - 1][i - 1]);
-            }
-            if (!auxSymbolChanged)
-            {
-                auxSymbolChanged = (_gameBoard[i][_gameBoard.length - i - 1] != _gameBoard[i - 1][_gameBoard.length - i - 2]);
-            }
-        }
-        boolean isWinFound = !mainSymbolChanged || !auxSymbolChanged;
-        if (isWinFound)
-        {
-            return true;
-        }
-        else
-        {
-            mainSymbolChanged = auxSymbolChanged = false;
-            // проверяем строки и столбцы поочереди 
-            for (int i = 0; i < _gameBoard.length; i++)
-            {
-                for (int j = 1; j < _gameBoard[i].length; j++)
+                if (!isMainFault)
                 {
-                    // проверяем сразу очередные строку и столбец
-                    mainSymbolChanged = (_gameBoard[i][j] != _gameBoard[i][j - 1]);
-                    auxSymbolChanged = (_gameBoard[j][i] != _gameBoard[j - 1][i]);
-                    if (mainSymbolChanged && auxSymbolChanged)
-                    {
-                        return false;
-                    }
+                    isMainFault = (_gameBoard[i][i] != targetSymbol);
+                }
+                if (!isAuxFault)
+                {
+                    isAuxFault = _gameBoard[i][_boardSize - 1 - i] != targetSymbol;
                 }
             }
-//            if (!mainSymbolChanged)
-//            {
-//                // проверяем столбцы поочереди
-//                for (int i = 0; i < gameBoard.length; i++)
-//                {
-//                    for (int j = 1; j < gameBoard[i].length; j++)
-//                    {
-//                        auxSymbolChanged = (gameBoard[j][i] != gameBoard[j - 1][i]);
-//                    }
-//                }
-//            }
+            isWinFound = !isMainFault || !isAuxFault;
         }
-        isWinFound = !mainSymbolChanged || !auxSymbolChanged;
+
+        // если нет победы по диагоналям, она ещё может быть по строкам или по столбцам
+
+        for (int i = 0; i < _boardSize && !isWinFound; i++)
+        {
+            boolean isRowFault = false, isColFault = false;
+            // проверяем сразу очередные строку и столбец, условие прекращения - несовпадение и по строке, и по столбцу
+            for (int j = 0; j < _boardSize && (!isRowFault || !isColFault); j++)
+            {
+                if (!isRowFault)
+                {
+                    isRowFault = (_gameBoard[i][j] != targetSymbol);
+                }
+                if (!isColFault)
+                {
+                    isColFault = (_gameBoard[j][i] != targetSymbol);
+                }
+            }
+            isWinFound = !isRowFault || !isColFault;
+        }
         return isWinFound;
     }
 
@@ -248,7 +248,7 @@ public class CrossGame
      * @param y - координата от 0 до {@link #_boardSize}
      * @param isUserTurn - true - ход пользователя - на экран будут выводиться сообщения о неправильных координатах
      * */
-    private static boolean isCoordsValid(int x, int y, char[][] gameBoard, char emptyCellSymbol, boolean isUserTurn)
+    private static boolean isCoordsValid(int x, int y, char[][] gameBoard, boolean isUserTurn)
     {
         if (x < 0 || x >= gameBoard.length || y < 0 || y >= gameBoard.length)
         {
@@ -258,7 +258,7 @@ public class CrossGame
             }
             return false;
         }
-        else if (gameBoard[x][y] == emptyCellSymbol)
+        else if (gameBoard[x][y] == EMPTY_CELL_SYMBOL)
         {
             return true;
         }
@@ -283,6 +283,8 @@ public class CrossGame
         {
             for (int j = -1; j < _boardSize; j++)
             {
+                //TODO: Разобраться - почему-то без {@code String#valueOf} печатается код символа вместо него самого -
+                // видимо специфика неявного преобразования символов в строку в Java
                 System.out.printf(" %s ", (i < 0 && j < 0) ? " " : (i < 0 ? j + 1 : (j < 0 ? i + 1 : String.valueOf(gameBoard[i][j]))));
             }
             System.out.println();
@@ -291,7 +293,7 @@ public class CrossGame
     }
 
     /**
-     * Метод хода ИИ противника
+     * Метод хода ИИ противника (включает вывод доски на консоль)
      *
      * @return - возвращает True, если обнаружена победа ИИ
      * */
@@ -309,7 +311,7 @@ public class CrossGame
                     x = _rand.nextInt(_boardSize);
                     y = _rand.nextInt(_boardSize);
                 }
-                while (!isCoordsValid(x, y, _gameBoard, EMPTY_CELL_SYMBOL, false));
+                while (!isCoordsValid(x, y, _gameBoard, false));
                 break;
             }
             case Low:
@@ -323,10 +325,12 @@ public class CrossGame
             default:
             {
                 // при неизвестном уровне интеллекта - пропуск хода ("мозг отсутствует")
+                System.out.println("DEBUG: CPU opponent turned off");
                 return false;
             }
         }
         _gameBoard[x][y] = _cpuSymbol;
+        printBoard(_gameBoard);
         return checkWin(_cpuSymbol);
     }
 
