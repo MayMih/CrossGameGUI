@@ -62,6 +62,7 @@ public class CrossGame
     {
         if (!parseCommandLine(args))
         {
+            printUsageRules();
             System.exit(-1);
         }
         System.out.println("Выбраны следующие параметры:");
@@ -90,7 +91,7 @@ public class CrossGame
             _playerSymbol = (userSymbol == 'x') || (userSymbol == 'х') ? 'X' : 'O';
             _cpuSymbol = (_playerSymbol == 'X') ? 'O' : 'X';
             //
-            _aiLevel = AILevel.Unknown;
+            //_aiLevel = AILevel.Unknown;
             //
             initBoard(_gameBoard);
             if (_cpuSymbol == 'X')
@@ -101,7 +102,7 @@ public class CrossGame
             {
                 printBoard(_gameBoard);
             }
-            boolean isPlayerWin, isCpuWin;
+            boolean isPlayerWin = false, isCpuWin = false;
             do
             {
                 isPlayerWin = playerTurn(_scn);
@@ -118,6 +119,10 @@ public class CrossGame
                 }
             }
             while (!noMoreMoves());
+            if (!isPlayerWin && !isCpuWin)
+            {
+                System.out.println("Ничья!");
+            }
             _scn.skip(".*\n");
             do
             {
@@ -316,6 +321,7 @@ public class CrossGame
             }
             case Low:
             {
+
                 break;
             }
             case BelowNormal:
@@ -363,13 +369,28 @@ public class CrossGame
             {
                 for (String testArg : args)
                 {
-                    if (testArg.trim().matches("^/s=\\d+$") || testArg.trim().matches("/size=\\d+"))
+                    boolean isSizeParamFound = testArg.trim().matches("^/s=\\d+$") || testArg.trim().matches("/size=\\d+");
+                    boolean isAiLevelParamFound = testArg.trim().matches("^/a=\\d+$") || testArg.trim().matches("/ai_level=\\d+");
+                    int testVal = 0;
+                    if (isSizeParamFound || isAiLevelParamFound)
                     {
-                        _boardSize = Integer.parseInt(testArg.substring(testArg.indexOf("=") + 1));
+                        testVal = Integer.parseInt(testArg.substring(testArg.indexOf("=") + 1));
                     }
-                    else if (testArg.trim().matches("^/a=\\d+$") || testArg.trim().matches("/ai_level=\\d+"))
+
+                    if (isSizeParamFound)
                     {
-                        int testVal = Integer.parseInt(testArg.substring(testArg.indexOf("=") + 1));
+                        if (testVal < 2)
+                        {
+                            System.err.println("Размер доски должен быть целым положительным числом больше 2");
+                            return false;
+                        }
+                        else
+                        {
+                            _boardSize = testVal;
+                        }
+                    }
+                    else if (isAiLevelParamFound)
+                    {
                         for (AILevel enumItem : AILevel.values())
                         {
                             if (testVal > 0 && enumItem.ordinal() == testVal)
@@ -381,14 +402,12 @@ public class CrossGame
                         if (_aiLevel == AILevel.Unknown)
                         {
                             System.err.format("Неизвестный уровень ИИ: \"%s\"%n%n", testVal);
-                            printUsageRules();
                             return false;
                         }
                     }
                     else
                     {
                         System.err.format("Неизвестный параметр: \"%s\"%n%n", testArg);
-                        printUsageRules();
                         return false;
                     }
                 }
@@ -396,7 +415,6 @@ public class CrossGame
             catch (NumberFormatException nfex)
             {
                 System.err.format("Ошибка разбора параметров запуска программы: \"%s\"%n%n", nfex.toString());
-                printUsageRules();
                 return false;
             }
             return true;
