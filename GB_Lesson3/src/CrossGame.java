@@ -5,11 +5,12 @@ import java.util.Random;
 import java.util.Scanner;
 
 /**
- * Главный класс игры в "Крестики-нолики "
+ * Главный класс игры в "Крестики-нолики" - Задание 3
  * @author mayur
  * */
 public class CrossGame
 {
+
     /**
      * Возможные уровни Искусственного интеллекта противника
      */
@@ -18,24 +19,34 @@ public class CrossGame
         /**
          * Неизвестный уровень - значение по умолчанию для пустых полей этого типа
          */
-        Unknown,
+        Unknown("Не задан"),
         /*
          * Тупой - Ходит случайным образом
          * */
-        Stupid,
+        Stupid("Тупой - Ходит случайным образом"),
         /**
          * Низкий - ходит по клеткам соседним со своими
          */
-        Low,
+        Low("Низкий - ходит по клеткам соседним со своими");
         /**
          * Ниже Среднего - ходит по клеткам соседним со своими и проверяет, не будет ли следующий ход игрока выигрышным
-         * (если да, то пытается препятствовать выигрышу вместо своего хода)
+         * (если да, то пытается препятствовать выигрышу вместо своего хода - не реализовано)
          */
-        BelowNormal,
+        //BelowNormal,  // ещё не реализовано
         /**
          * *Алгоритм с подсчётом очков для каждой клетки (определение выгодности хода)
          */
-        Normal
+        //Normal        // ещё не реализовано
+        
+        /**
+         * Конструктор перечисления - позволяет задать описания для элементов перечисления
+         * */
+        private AILevel(String _description)
+        {
+            description = _description;
+        }
+        
+        public final String description;
     }
 
 
@@ -50,6 +61,17 @@ public class CrossGame
     private static char _playerSymbol = 'X', _cpuSymbol = 'O';
     private static AILevel _aiLevel = AILevel.Unknown;
     private static char[][] _gameBoard;
+    /**
+     * Счётчик ходов ПК
+     *
+     * @implNote    является индексом для массива {@link #_cpuTurnsHistory}, поэтому отображает кол-во ходов меньшее на 1
+     */
+    private static int _cpuTurnsCounter;
+    /**
+     * Список ходов ПК
+     * TODO: тут, конечно, логичнее использовать список, т.к. кол-во ходов заранее неизвестно (но мы пока не знаем о коллекциях)
+     * */
+    private static int[][] _cpuTurnsHistory;
 
     //endregion 'Поля и константы'
 
@@ -132,6 +154,11 @@ public class CrossGame
                 inCorrectInput = !wantPlayMore && (!userInput.equalsIgnoreCase("N") && !userInput.equalsIgnoreCase("No"));
             }
             while (inCorrectInput);
+            if (wantPlayMore && (_cpuTurnsHistory != null))
+            {
+                _cpuTurnsHistory = null;
+                _cpuTurnsCounter = 0;
+            }
         }
         while (wantPlayMore);
         _scn.close();
@@ -161,6 +188,32 @@ public class CrossGame
         }
         return true;
     }
+    /**
+     * Метод проверки доступных клеток в регионе (3 Х 3 относительно указанного начала координат)
+     * */
+    private static boolean noMoreMovesInRegion(int minX, int minY)
+    {
+        for (int i = minX; (i < minX + 3) && (i < _boardSize); i++)
+        {
+            if (i < 0)
+            {
+                continue;
+            }
+            for (int j = minY; (j < minY + 3) && (j < _boardSize); j++)
+            {
+                if (j < 0)
+                {
+                    continue;
+                }
+                if (_gameBoard[i][j] == EMPTY_CELL_SYMBOL)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     
     /**
      * Метод хода игрока - заполняет клетку введённую с клавиатуры символом игрока (включает вывод доски на консоль)
@@ -189,16 +242,18 @@ public class CrossGame
             // если числа не присвоены, значит пользователь вводил не цифры
             while (x == 0 || y == 0);
         }
-        while (!isCoordsValid(--x, --y, _gameBoard, true));
+        while (!checkCoords(--x, --y, _gameBoard, true));
 
         _gameBoard[x][y] = _playerSymbol;
         printBoard(_gameBoard);
-        return checkWin(_playerSymbol);
+        return checkWin(_playerSymbol, x, y);
     }
 
     /**
      * Метод проверки признака победы - проверяет нет ли такой линии или диагонали, что полностью заполнена указанным
      *  символом
+     * @implNote    TODO: возможная оптимизация - передавать координаты последнего хода, тогда можно будет проверять
+     *  только одну строку и один столбец (и возможно одну из диагоналей) вместо сканирования всей таблицы
      * */
     private static boolean checkWin(char targetSymbol)
     {
@@ -245,6 +300,51 @@ public class CrossGame
         }
         return isWinFound;
     }
+    /**
+     * Метод проверки признака победы (оптимизированная версия)
+     *
+     * @implNote    сканирует только одну строку и столбец и возможно одну из диагоналей
+     * */
+    private static boolean checkWin(char targetSymbol, int x, int y)
+    {
+        boolean isWinFound = false;
+        // сначала проверяем диагонали (но только, если там есть хотя бы один нужный символ - иначе нет смысла)
+        boolean isMainFault = false, isAuxFault = false;
+        if (x == y)
+        {
+            for (int i = 0; i < _boardSize && !isMainFault; i++)
+            {
+                isMainFault = (_gameBoard[i][i] != targetSymbol);
+            }
+            isWinFound = !isMainFault;
+        }
+        else if (x == _boardSize - 1 - y)
+        {
+            for (int i = 0; i < _boardSize && !isAuxFault; i++)
+            {
+                isAuxFault = (_gameBoard[i][_boardSize - 1 - i] != targetSymbol);
+            }
+            isWinFound = !isAuxFault;
+        }
+        // если на диагоналях победы нет - сканируем строку и столбец - там ещё может быть победа
+        if (!isWinFound)
+        {
+            boolean isRowFault = false, isColFault = false;
+            for (int i = 0; i < _boardSize; i++)
+            {
+                if (!isRowFault)
+                {
+                    isRowFault = (_gameBoard[x][i] != targetSymbol);
+                }
+                if (!isColFault)
+                {
+                    isColFault = (_gameBoard[i][y] != targetSymbol);
+                }
+            }
+            isWinFound = !isColFault || !isRowFault;
+        }
+        return isWinFound;
+    }
 
     /**
      * Метод проверки корректности хода
@@ -253,7 +353,7 @@ public class CrossGame
      * @param y - координата от 0 до {@link #_boardSize}
      * @param isUserTurn - true - ход пользователя - на экран будут выводиться сообщения о неправильных координатах
      * */
-    private static boolean isCoordsValid(int x, int y, char[][] gameBoard, boolean isUserTurn)
+    private static boolean checkCoords(int x, int y, char[][] gameBoard, boolean isUserTurn)
     {
         if (x < 0 || x >= gameBoard.length || y < 0 || y >= gameBoard.length)
         {
@@ -300,7 +400,9 @@ public class CrossGame
     /**
      * Метод хода ИИ противника (включает вывод доски на консоль)
      *
-     * @return - возвращает True, если обнаружена победа ИИ
+     * @return  возвращает True, если обнаружена победа ИИ
+     *
+     * @apiNote создаёт массив {@link #_cpuTurnsHistory}, если он ещё не был создан
      * */
     private static boolean cpuTurn()
     {
@@ -311,20 +413,69 @@ public class CrossGame
         {
             case Stupid:
             {
-                do
-                {
-                    x = _rand.nextInt(_boardSize);
-                    y = _rand.nextInt(_boardSize);
-                }
-                while (!isCoordsValid(x, y, _gameBoard, false));
+                int[] res = makeRandomTurn();
+                x = res[0];
+                y = res[1];
                 break;
             }
             case Low:
             {
-
+                int[] res;
+                if (_cpuTurnsHistory == null)
+                {
+                    res = makeRandomTurn();
+                    x = res[0];
+                    y = res[1];
+                    _cpuTurnsHistory = new int[_boardSize * _boardSize][];
+                    _cpuTurnsHistory[_cpuTurnsCounter++] = res;
+                }
+                else
+                {
+                    boolean isCoordsValid = false;
+                    // сначала пытаемся сгенерировать соседнюю точку
+                    for (int i = 0; (i < _cpuTurnsCounter + 1) && !isCoordsValid; i++)
+                    {
+                        // выбираем случайную опорную точку, относительно которой будем пытаться делать ход
+                        int[] baseTurnCoords = _cpuTurnsHistory[_rand.nextInt(_cpuTurnsCounter)];
+                        x = baseTurnCoords[0];
+                        y = baseTurnCoords[1];
+                        if (!noMoreMovesInRegion(x - 1, y - 1))
+                        {
+                            do
+                            {
+                                // генерируем случайный коэффициент от (-1) до 1 для получения соседних координат
+                                x += -1 + _rand.nextInt(3);
+                                y += -1 + _rand.nextInt(3);
+                                isCoordsValid = checkCoords(x, y, _gameBoard, false);
+                                if (isCoordsValid)
+                                {
+                                    _cpuTurnsHistory[_cpuTurnsCounter++] = new int[] {x, y};
+                                }
+                                else
+                                {
+                                    x = baseTurnCoords[0];
+                                    y = baseTurnCoords[1];
+                                }
+                            }
+                            while (!isCoordsValid);
+                        }
+                    }
+                    // если же походить в соседнюю клетку не выходит - видимо они заняты, то делаем случайный ход
+                    if (!isCoordsValid)
+                    {
+                        res = makeRandomTurn();
+                        x = res[0];
+                        y = res[1];
+                        _cpuTurnsHistory[_cpuTurnsCounter++] = res;
+                    }
+                }
                 break;
             }
-            case BelowNormal:
+//            case BelowNormal:
+//            {
+//                break;
+//            }
+            case Unknown:
             {
                 break;
             }
@@ -337,7 +488,29 @@ public class CrossGame
         }
         _gameBoard[x][y] = _cpuSymbol;
         printBoard(_gameBoard);
-        return checkWin(_cpuSymbol);
+        return checkWin(_cpuSymbol, x, y);
+    }
+
+    /**
+     *  Метод генерации случайной пары "подходящих" координат
+     *
+     * @return  Массив из двух элементов, номер строки и номер столбца
+     *
+     * @implNote TODO: подумать, возможно логичнее возвращать объект вроде Point, но стандартный Point в Java жёстко завязан на геометрию (AWT)
+     * */
+    private static int[] makeRandomTurn()
+    {
+        int x = 0, y = 0;
+        do
+        {
+            x = _rand.nextInt(_boardSize);
+            y = _rand.nextInt(_boardSize);
+        }
+        while (!checkCoords(x, y, _gameBoard, false));
+        int[] res = new int[2];
+        res[0] = x;
+        res[1] = y;
+        return res;
     }
 
     /**
@@ -426,11 +599,17 @@ public class CrossGame
      * */
     private static void printUsageRules()
     {
-        System.out.format("Использование: %s {/s|/size}=<размер_поля> {/a|/ai_level}=<%s>%n", CrossGame.class.getSimpleName(), getAILevels());
+        //String aiLevels = Arrays.toString(Arrays.stream(AILevel.values()).skip(1).map(x -> x.ordinal()).toArray());
+        System.out.format("Использование: %s {/s|/size}=<размер_поля> {/a|/ai_level}=<%s>%n", CrossGame.class.getSimpleName(), /*aiLevels*/ getAILevels());
         System.out.format("%nНапример: %s /s=3 /a=1 - запустит игру с полем размера 3х3 и минимальным интеллектом противника (рандом)%n",
                 CrossGame.class.getSimpleName());
-        System.out.format("%nВозможные уровни интеллекта:%n%s%n", getAILevels("\t\t"));
-        System.out.println(Arrays.toString(Arrays.stream(AILevel.values()).skip(1).toArray()));
+        System.out.println();
+        System.out.println("Возможные уровни интеллекта:");
+        System.out.println(Arrays.toString(Arrays.stream(AILevel.values()).skip(1).map(x ->
+                x.toString() + " (" + x.ordinal() + ")\t - \t" + x.description + System.lineSeparator()).toArray()));
+        System.out.println();
+        // альтернативная (скоростная?) реализация в виде метода
+        //System.out.format("%nВозможные уровни интеллекта:%n%s%n", getAILevels(System.lineSeparator(), true, true));
     }
 
     /**
@@ -442,15 +621,39 @@ public class CrossGame
     }
 
     /**
-    * Метод печати в виде строки разделённой указанным сиволом
+    * Метод печати числовых значений перечисления в виде строки разделённой указанным символом
     * */
     private static String getAILevels(String separator)
     {
+        return getAILevels(separator, false, false);
+    }
+    /**
+     * Метод печати в виде строки разделённой указанным символом
+     *
+     * @param isIncludeValueNamePrefixes     True - предварять числовые значения названием элемента перечисления
+     * @param isIncludeDescriptions         True - Завершать строки описаниями элементов перечисления
+     * */
+    private static String getAILevels(String separator, boolean isIncludeValueNamePrefixes, boolean isIncludeDescriptions)
+    {
         AILevel[] levels = AILevel.values();
         StringBuilder sb = new StringBuilder(levels.length);
+        // пропускаем значение {@link #AILevel.Unknown}
         for (int i = 1; i < levels.length; i++)
         {
-            sb.append(levels[i].ordinal()).append(separator);
+            AILevel lvl = levels[i];
+            if (isIncludeValueNamePrefixes)
+            {
+                sb.append(MessageFormat.format("{0} ({1})", lvl.toString(), lvl.ordinal()));
+            }
+            else
+            {
+                sb.append(lvl.ordinal());
+            }
+            if (isIncludeDescriptions)
+            {
+                sb.append("\t - \t").append(lvl.description);
+            }
+            sb.append(separator);
         }
         String result = sb.toString();
         return result.substring(0, result.lastIndexOf(separator));
