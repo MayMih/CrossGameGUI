@@ -23,4 +23,10 @@ public class Dog extends Animal implements Swimming
     {
         return distance <= maxSwimDistance;
     }
+    
+    @Override
+    public int getMaxSwimDistance()
+    {
+        return maxSwimDistance;
+    }
 }

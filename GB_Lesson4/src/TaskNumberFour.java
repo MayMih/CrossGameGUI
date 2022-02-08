@@ -50,6 +50,20 @@ public class TaskNumberFour
             String eMail = UUID.randomUUID().toString();
             eMail = eMail.substring(0, Math.min(5 + _rand.nextInt(eMail.length() / 3), eMail.length())) + "@" +
                     eMailDomains[_rand.nextInt(eMailDomains.length)];
+            boolean isNameUsed = false;
+            do
+            {
+                String pos =  Names[_rand.nextInt(Names.length)];
+                for (Employee emp : Staff)
+                {
+                     isNameUsed = (emp != null) && emp.FIO.equals(pos);
+                     if (isNameUsed)
+                     {
+                         break;
+                     }
+                }
+            }
+            while (isNameUsed);
             
             Staff[i] = new Employee(Names[_rand.nextInt(Names.length)], Positions[_rand.nextInt(Positions.length)],
                     phoneNumber, eMail, 20 + _rand.nextInt(50), 500 +_rand.nextInt(1000));
@@ -104,6 +118,48 @@ public class TaskNumberFour
         System.out.format("Стандартная собака пытается проплыть %d метров...%n", testDistance);
         System.out.println("Результат: " + dog1.swim(testDistance));
         System.out.println();
+        
+        // 9. * Добавить животным разброс в ограничениях. То есть у одной собаки ограничение на бег может быть 400 м., у другой – 600 м.
+        
+        final int arrLength = 10;
+        System.out.printf("Генерируем %d случайных собак и кошек...%n%n", arrLength);
+        Dog[] randomDogs = new Dog[arrLength];
+        Cat[] randomCats = new Cat[arrLength];
+        for (int i = 0; i < arrLength; i++)
+        {
+            randomCats[i] = new Cat(_rand.nextInt(400), _rand.nextInt(5));
+            randomDogs[i] = new Dog(_rand.nextInt(1000), _rand.nextDouble() + 1.5, 1 + _rand.nextInt(20));
+            System.out.printf("Тестируем кошку %d...%n%n", i + 1);
+            testAnimal(randomCats[i]);
+            System.out.println();
+            System.out.printf("Тестируем собаку %d...%n%n", i + 1);
+            testAnimal(randomDogs[i]);
+            System.out.println();
+        }
+    }
+    
+    /**
+     * Метод тестирования указанного животного - проверяет животное на случайных данных - выводит результат в консоль.
+     * */
+    private static void testAnimal(Animal someAnimal)
+    {
+        int testDistance = 1 + _rand.nextInt(someAnimal.maxRunDistance * 2);
+        String animalName = someAnimal instanceof Cat ? "Кот" : (someAnimal instanceof Dog ? "Собака" : "Неизвестное животное");
+        System.out.format("%s пытается пробежать %d метров...%n", animalName, testDistance);
+        System.out.println("Результат: " + someAnimal.run(testDistance));
+        System.out.println();
+        double testJumpDistance = someAnimal.maxJumpHeight * 2;
+        System.out.format("%s пытается прыгнуть на %1.1f метров...%n", animalName, testJumpDistance);
+        System.out.println("Результат: " + someAnimal.jump(testJumpDistance));
+        System.out.println();
+        if (someAnimal instanceof Swimming)
+        {
+            Swimming swimmingAnimal = ((Swimming)someAnimal);
+            testDistance = 1 + _rand.nextInt(swimmingAnimal.getMaxSwimDistance() * 2);
+            System.out.format("%s пытается проплыть %d метров...%n", animalName, testDistance);
+            System.out.println("Результат: " + swimmingAnimal.swim(testDistance));
+            System.out.println();
+        }
     }
     
     /**

@@ -7,4 +7,7 @@
 public interface Swimming
 {
     boolean swim(int distance);
+    
+    int getMaxSwimDistance();
 }
+
