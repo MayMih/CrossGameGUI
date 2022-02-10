@@ -1,4 +1,4 @@
-// 1. Создать класс «Сотрудник» с полями: ФИО, должность, email, телефон, зарплата, возраст;
+package org.mmu.task4;// 1. Создать класс «Сотрудник» с полями: ФИО, должность, email, телефон, зарплата, возраст;
 
 import java.text.MessageFormat;
 
@@ -49,7 +49,7 @@ public class Employee
     /**
      * Перегрузка метода преобразования объекта в строку
      * */
-     public String toString()
+    public String toString()
     {
         return toString(";\t ");
     }

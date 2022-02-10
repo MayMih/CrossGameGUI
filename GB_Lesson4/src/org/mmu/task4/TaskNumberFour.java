@@ -1,3 +1,5 @@
+package org.mmu.task4;
+
 import java.util.Arrays;
 import java.util.Random;
 import java.util.UUID;
@@ -43,8 +45,6 @@ public class TaskNumberFour
     
         for (int i = 0; i < Staff.length; i++)
         {
-//            String phoneNumber = String.format("+7 (%s) %s %s", Arrays.toString(_rand.ints(3).toArray()),
-//                    Arrays.toString(_rand.ints(3).toArray()), Arrays.toString(_rand.ints(4).toArray()));
             String phoneNumber = String.format("+7 (%03d) %03d %04d", _rand.nextInt(1000), _rand.nextInt(1000),
                     _rand.nextInt(10000));
             String eMail = UUID.randomUUID().toString();
@@ -68,13 +68,14 @@ public class TaskNumberFour
             Staff[i] = new Employee(Names[_rand.nextInt(Names.length)], Positions[_rand.nextInt(Positions.length)],
                     phoneNumber, eMail, 20 + _rand.nextInt(50), 500 +_rand.nextInt(1000));
         }
-    
+        
         System.out.println("Список всех сотрудников:");
         System.out.println();
         printlnEmployeesArray(Staff);
         System.out.println();
         System.out.println("Список сотрудников старше 40 лет (через цикл):");
         System.out.println();
+        long startTime = System.nanoTime();
         for (Employee emp : Staff)
         {
             if (emp.age > 40)
@@ -84,10 +85,13 @@ public class TaskNumberFour
             }
         }
         System.out.println();
+        System.out.printf("Время выполнения %s (нс)%n%n", System.nanoTime() - startTime);
         System.out.println("Список сотрудников старше 40 лет (проверка через Потоки Java 8):");
         System.out.println();
+        startTime = System.nanoTime();
         System.out.println(Arrays.toString(Arrays.stream(Staff).filter(x -> x.age > 40).toArray()).
                 replace(", ", System.lineSeparator()));
+        System.out.printf("%nВремя выполнения %s (нс)%n", System.nanoTime() - startTime);
         System.out.println();
         
         // 5. Создать классы Собака и Кот с наследованием от класса Животное;
