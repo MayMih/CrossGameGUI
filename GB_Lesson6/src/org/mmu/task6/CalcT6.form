@@ -39,6 +39,8 @@
           <alignmentX value="0.0"/>
           <focusable value="false"/>
           <font name="Consolas" size="14" style="1"/>
+          <foreground color="-65524"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -53,6 +55,7 @@
         <properties>
           <focusable value="false"/>
           <font name="Consolas" size="14" style="1"/>
+          <foreground color="-41984"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -80,7 +83,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -94,7 +99,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -108,7 +115,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -122,7 +131,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -136,7 +147,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -150,7 +163,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -164,7 +179,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -178,7 +195,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -192,7 +211,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -206,7 +227,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -220,7 +243,9 @@
         </constraints>
         <properties>
           <focusable value="false"/>
-          <font name="Consolas" size="14" style="1"/>
+          <font name="Consolas" size="14" style="3"/>
+          <foreground color="-14024449"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
@@ -233,8 +258,11 @@
           <gridbag weightx="0.0" weighty="0.0"/>
         </constraints>
         <properties>
+          <background color="-7667879"/>
           <focusable value="false"/>
           <font name="Consolas" size="14" style="1"/>
+          <foreground color="-16777216"/>
+          <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
