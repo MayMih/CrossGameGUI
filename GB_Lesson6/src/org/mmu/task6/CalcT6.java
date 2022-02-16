@@ -89,8 +89,7 @@ public class CalcT6
         mainMenu.setToolTipText("Реализует задание 1.3");
         JMenuItem miOpenConverter = mainMenu.add("Конвертер величин");
         miOpenConverter.setToolTipText("Калькулятор работает с двумя параметрами, вводимыми пользователем в окна ввода");
-        JMenu windowHandler = new JMenu();
-        miniBar.add(windowHandler);
+        miniBar.add(mainMenu);
         jf.setJMenuBar(miniBar);
         jf.pack();
         jf.setLocationByPlatform(true);
