@@ -28,7 +28,7 @@
           <margin top="2" left="6" bottom="2" right="6"/>
           <selectionColor color="-13394945"/>
           <text value="0"/>
-          <toolTipText value="&lt;html&gt;Для смены знака нажмите &lt;b&gt;&lt;kbd&gt;Ctrl&lt;/kbd&gt; + &lt;kbd&gt;-&lt;/kbd&gt;&lt;/b&gt;&lt;/html&gt;"/>
+          <toolTipText value=""/>
         </properties>
       </component>
       <component id="e15de" class="javax.swing.JButton" binding="btClearCalcStack">
@@ -46,6 +46,7 @@
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
           <text value="CE"/>
+          <toolTipText value="&lt;html&gt;Полный сброс (&lt;kbd&gt;Ctrl&lt;/kbd&gt; + &lt;kbd&gt;Delete&lt;/kbd&gt;) - очистить экран и результат последнего вычисления&lt;/html&gt;"/>
         </properties>
       </component>
       <component id="cb66a" class="javax.swing.JButton" binding="btClearDisplay">
@@ -61,6 +62,7 @@
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
           <text value="C"/>
+          <toolTipText value="&lt;html&gt;Сброс (&lt;kbd&gt;Delete&lt;/kbd&gt;) - Очистить экран&lt;/html&gt;"/>
         </properties>
       </component>
       <component id="3587a" class="javax.swing.JButton" binding="btBackspace">
