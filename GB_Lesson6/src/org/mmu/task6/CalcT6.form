@@ -31,7 +31,7 @@
           <toolTipText value=""/>
         </properties>
       </component>
-      <component id="e15de" class="javax.swing.JButton" binding="btClearCalcStack">
+      <component id="e15de" class="javax.swing.JButton" binding="btClearDisplay">
         <constraints>
           <grid row="1" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="0" indent="0" use-parent-layout="false"/>
           <gridbag weightx="0.0" weighty="0.0"/>
@@ -40,16 +40,16 @@
           <alignmentX value="0.0"/>
           <focusable value="false"/>
           <font name="Consolas" size="14" style="1"/>
-          <foreground color="-65524"/>
+          <foreground color="-41984"/>
           <hideActionText value="false"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
           <text value="CE"/>
-          <toolTipText value="&lt;html&gt;Полный сброс (&lt;kbd&gt;Ctrl&lt;/kbd&gt; + &lt;kbd&gt;Delete&lt;/kbd&gt;) - очистить экран и результат последнего вычисления&lt;/html&gt;"/>
+          <toolTipText value="&lt;html&gt;Сброс (&lt;kbd&gt;Delete&lt;/kbd&gt;) - Очистить экран&lt;/html&gt;"/>
         </properties>
       </component>
-      <component id="cb66a" class="javax.swing.JButton" binding="btClearDisplay">
+      <component id="cb66a" class="javax.swing.JButton" binding="btClearAll">
         <constraints>
           <grid row="1" column="1" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="0" indent="0" use-parent-layout="false"/>
           <gridbag weightx="0.0" weighty="0.0"/>
@@ -57,12 +57,12 @@
         <properties>
           <focusable value="false"/>
           <font name="Consolas" size="14" style="1"/>
-          <foreground color="-41984"/>
+          <foreground color="-65524"/>
           <horizontalAlignment value="0"/>
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
           <text value="C"/>
-          <toolTipText value="&lt;html&gt;Сброс (&lt;kbd&gt;Delete&lt;/kbd&gt;) - Очистить экран&lt;/html&gt;"/>
+          <toolTipText value="&lt;html&gt;Полный сброс (&lt;kbd&gt;Ctrl&lt;/kbd&gt; + &lt;kbd&gt;Delete&lt;/kbd&gt;) - очистить экран и результат последнего вычисления&lt;/html&gt;"/>
         </properties>
       </component>
       <component id="3587a" class="javax.swing.JButton" binding="btBackspace">
@@ -77,6 +77,7 @@
           <minimumSize width="36" height="32"/>
           <preferredSize width="50" height="48"/>
           <text value="&lt;"/>
+          <toolTipText value="&lt;html&gt;&lt;kbd&gt;Backspace&lt;/kbd&gt; - стирает один знак справа, в т.ч. и знак Операции&lt;/html&gt;"/>
         </properties>
       </component>
       <component id="3a105" class="javax.swing.JButton" binding="btNine">

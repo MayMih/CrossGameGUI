@@ -5,11 +5,9 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.awt.event.*;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.MessageFormat;
-import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +27,10 @@ public class CalcT6
     enum Operation
     {
         None,
+        /**
+         * Специальная операция, которая позволяет отличить начальное состояние калькулятора от ситуации после Равенства
+         * */
+        Equality,
         /**
          * Умножить
          * */
@@ -57,8 +59,8 @@ public class CalcT6
     
     private JPanel mainPanel;
     private JTextField txtDisplay;
-    private JButton btClearCalcStack;
     private JButton btClearDisplay;
+    private JButton btClearAll;
     private JButton btBackspace;
     private JButton btCalculate;
     private JButton btSeven;
@@ -75,8 +77,8 @@ public class CalcT6
     private JMenuBar _miniBar;
     private Point _mouseDownCursorPos = new Point();
     private JFrame _jf;
-    private double _operandA = 0;
-    private Operation _curOperation = Operation.None;
+    private double _operandA = 0, _operandB;
+    private Operation _curOperation = Operation.None, _lastOperation;
     
     private static final List<Integer> _validKeyCodes = Arrays.asList(
             KeyEvent.VK_BACK_SLASH, KeyEvent.VK_SLASH,
@@ -91,7 +93,9 @@ public class CalcT6
             KeyEvent.VK_COLON);
     
     //private static final char _decimalSeparator = new DecimalFormat().getDecimalFormatSymbols().getDecimalSeparator();
+    private static final DecimalFormat _formatter = new DecimalFormat();
     private final Font _defaultDisplayFont;
+    private final String _dot;
     
     //endregion 'Поля и константы'
    
@@ -113,6 +117,7 @@ public class CalcT6
     public static void main(String[] args)
     {
         showThreadInfo();
+        _formatter.setDecimalSeparatorAlwaysShown(false);
         SwingUtilities.invokeLater(new Runnable()
         {
             @Override
@@ -177,6 +182,13 @@ public class CalcT6
         btMinus.setToolTipText(signChangeHotkeyTooltip);
         //btDot.setActionCommand(Character.toString(_decimalSeparator));
         _defaultDisplayFont = txtDisplay.getFont();
+        //TODO: Опасное действие - желательно не выдумывать свои форматы (могут совпасть с чем-то), а использовать из ОС.
+        //  Но тогда возникает проблема с обратным преобразование, т.к. Double.parseDouble() - выбрасывает исключение на запятой!
+        //  Нужно пользоваться дополнительным классом-обёрткой NumberFormat
+        _dot = btDot.getActionCommand();
+        DecimalFormatSymbols dfs = _formatter.getDecimalFormatSymbols();
+        dfs.setDecimalSeparator(btDot.getActionCommand().charAt(0));
+        _formatter.setDecimalFormatSymbols(dfs);
         _jf.setVisible(true);
         showThreadInfo("После показа окна");
     }
@@ -204,7 +216,7 @@ public class CalcT6
                 {
                     if (e.isShiftDown() || e.isControlDown())
                     {
-                        btClearCalcStack.doClick();
+                        btClearAll.doClick();
                     }
                     else
                     {
@@ -267,7 +279,7 @@ public class CalcT6
     };
     
     /**
-     * Обработчик нажатия кнопок формы мышью
+     * Обработчик нажатия кнопок формы мышью - здесь происходит основная работа Калькулятора
      *
      * @implNote    Если это кнопка с цифрой, то добавляем её к тексту поля ввода, иначе показываем знак операции, вместо
      *  текущего текста. В любом случае сначала запоминаем текущие показания "дисплея".
@@ -279,16 +291,20 @@ public class CalcT6
         {
             Object firedComp = e.getSource();
             // Кнопка "Равно (=)" - вычислить результат и показать на дисплее
-            if (firedComp == btCalculate && (Double.isNaN(_operandA)))
+            if (firedComp == btCalculate)
             {
-                double result = calculate();
-                // подавляем огрехи форматирования
-                if (!Double.isNaN(result))
+                if (_curOperation == Operation.Equality)
                 {
-                    _operandA = result;
-                    _curOperation = Operation.None;
-                    txtDisplay.setText(result != 0 ? Double.toString(result) : "0");
+                    _curOperation = _lastOperation;
+                    _operandA = calculate(true);
                 }
+                else
+                {
+                    _operandA = calculate();
+                }
+                _lastOperation = _curOperation;
+                _curOperation = Operation.Equality;
+                txtDisplay.setText(_formatter.format(_operandA));
             }
             else if (firedComp == btBackspace)
             {
@@ -308,15 +324,15 @@ public class CalcT6
                 catch (Exception ex)
                 {
                     // на дисплее не число - значит это операция - отменяем её
-                    //txtDisplay.setText(Double.isNaN(_operandA) ? "0" : NumberFormat.getNumberInstance().format(_operandA));
-                    txtDisplay.setText(Double.isNaN(_operandA) ? "0" : Double.toString(_operandA));
+                    txtDisplay.setText((_operandA == 0) ? "0" : Double.toString(_operandA));
+                    //txtDisplay.setText(_operandA != 0 ? String.format("%s", _operandA) : "0");
                     _curOperation = Operation.None;
                 }
                 //showThreadInfo(btBackspace.getText());
             }
-            else if (firedComp == btClearCalcStack)
+            else if (firedComp == btClearAll)
             {
-                _operandA = Double.NaN;
+                _operandA = _operandB = 0;
                 _curOperation = Operation.None;
                 txtDisplay.setText("0");
             }
@@ -335,20 +351,42 @@ public class CalcT6
                 try
                 {
                     _operandA = Double.parseDouble(txtDisplay.getText().trim());
-                    txtDisplay.setText(((JButton)firedComp).getActionCommand());
                 }
                 catch (Exception ex)
                 {
                     // обработка не требуется - видимо польз-ль повторно нажал клавишу с операцией
                 }
+                txtDisplay.setText(((JButton)firedComp).getActionCommand());
             }
             // нажата кнопка с цифрой или точка
             else
             {
-                String oldText = txtDisplay.getText().trim();
-                String cmd = ((JButton)firedComp).getActionCommand();
-                //txtDisplay.setText((oldText.equals("0") && !cmd.equalsIgnoreCase(Character.toString(_decimalSeparator)) ? "" : oldText) + cmd);
-                String res = (oldText.equals("0") && !cmd.equalsIgnoreCase(btDot.getActionCommand()) ? "" : oldText) + cmd;
+                String key = ((JButton)firedComp).getActionCommand();
+                String oldText = _curOperation == Operation.Equality ? "" : txtDisplay.getText().trim();
+                String res;
+                try         // если на экране число, то нажатую цифру нужно дописать к нему (если это не результат вычислений, тогда его нужно заменять)
+                {
+                    Double num = Double.parseDouble(oldText);
+                    if (num == 0 && key.equalsIgnoreCase(_dot))
+                    {
+                        res = "0" + key;
+                    }
+                    else
+                    {
+                        res = ((num != 0) || oldText.equalsIgnoreCase("0" + _dot)) ? oldText + key : key;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    res = key.equalsIgnoreCase(_dot) ? "0" + key : key;
+                }
+                finally
+                {
+                    if (_curOperation == Operation.Equality)
+                    {
+                        _curOperation = Operation.None;
+                    }
+                }
                 txtDisplay.setText(res);
             }
         }
@@ -378,7 +416,7 @@ public class CalcT6
         {
             System.out.printf("Сообщение: \"%s\" - ", text);
         }
-        System.out.printf("Method: \"%s\", Thread: \"%s\", (id: %d)%n" , curThread.getStackTrace()[2].getMethodName(),
+        System.out.printf("Method: \"%s\", Thread: \"%s\", (id: %d)%n" , curThread.getStackTrace()[3].getMethodName(),
                 curThread.getName(), curThread.getId());
     }
     
@@ -436,18 +474,18 @@ public class CalcT6
                 Font testFont = _defaultDisplayFont;
                 int strWidth = 0;
                 String txt = txtDisplay.getText();
-                FontMetrics fmeter = txtDisplay.getFontMetrics(testFont);
+                FontMetrics fmetr = txtDisplay.getFontMetrics(testFont);
                 do
                 {
-                    strWidth = SwingUtilities.computeStringWidth(fmeter, txt);
+                    strWidth = SwingUtilities.computeStringWidth(fmetr, txt);
                     if (strWidth < (txtDisplay.getWidth() - txtDisplay.getInsets().left - txtDisplay.getInsets().right))
                     {
                         break;
                     }
                     testFont = testFont.deriveFont(testFont.getSize() - 1f);
-                    fmeter = txtDisplay.getFontMetrics(testFont);
+                    fmetr = txtDisplay.getFontMetrics(testFont);
                 }
-                while (fmeter.getHeight() > 20);
+                while (fmetr.getHeight() > 20);
                 
                 if (testFont != txtDisplay.getFont())
                 {
@@ -479,16 +517,23 @@ public class CalcT6
         txtDisplay.addKeyListener(keyPressedHandler);
     }
     
-    /**
-     * Метод расчёта для калькулятора
-     * */
     private double calculate()
     {
-        double result = Double.NaN;
+        return calculate(false);
+    }
+    /**
+     * Метод расчёта для калькулятора
+     *
+     * @isRepeatLast    True - повторить предыдущую операцию с сохранённым Операндом_2
+     *
+     * */
+    private double calculate(boolean isRepeatLast)
+    {
+        double result = 0;
         double displayedNumber = Double.NaN;
         try
         {
-            displayedNumber = Double.parseDouble(txtDisplay.getText().trim());
+            displayedNumber = isRepeatLast ? _operandB : Double.parseDouble(txtDisplay.getText().trim());
             switch (_curOperation)
             {
                 case Add:
@@ -511,15 +556,17 @@ public class CalcT6
                     result = _operandA - displayedNumber;
                     break;
                 }
-                case Power:
+                case Power:     // при возведении в степень на экране будет значение библиотечной функции
                 {
                     result = Math.pow(_operandA, displayedNumber);
                     double myResult = _operandA;
-                    for (int i = 0; i < displayedNumber; i++)
+                    for (int i = 0; i < displayedNumber - 1; i++)
                     {
                         myResult *= _operandA;
                     }
-                    JOptionPane.showMessageDialog(btCalculate, "Результат вычисления без библиотечной функции: " + myResult);
+                    String mes = MessageFormat.format("<html><p>Результат вычисления через функцию <i>Math.pow()</i>: <b>{0}</b></p>" +
+                                    "<p>Результат вычисления без библиотечной функции: <b>{0}</b></p></html>", result, myResult);
+                    JOptionPane.showMessageDialog(btCalculate, mes,"Результат", JOptionPane.INFORMATION_MESSAGE);
                     break;
                 }
                 default:
@@ -527,6 +574,7 @@ public class CalcT6
                     result = displayedNumber;
                 }
             }
+            this._operandB = displayedNumber;
         }
         catch (NumberFormatException nex)
         {
