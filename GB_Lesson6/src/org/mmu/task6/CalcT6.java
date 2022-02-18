@@ -1,5 +1,7 @@
 package org.mmu.task6;
 
+import com.formdev.flatlaf.FlatLightLaf;
+
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -8,9 +10,8 @@ import java.awt.event.*;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.MessageFormat;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * 1. Разработать оконное приложение «Калькулятор»;
@@ -22,36 +23,58 @@ import java.util.Optional;
 public class CalcT6
 {
     /**
+     *  Определяет, будет ли выводиться в консоль дополнительная отладочная информация (например о перехвате клавиш)
+     *
+     * @apiNote     TODO: раз в Java нет понятия отладочной сборки, то логичнее выводить управление этой константой во
+     *  внешний "мир" (параметры запуска в консоли/файл настоек/переменные окружения и т.п.)
+     * */
+    private static final boolean IS_DEBUG;
+    
+    static
+    {
+        IS_DEBUG = false;
+    }
+    
+    /**
      * Набор возможных операций над числами
      * */
     enum Operation
     {
-        None,
+        None(' '),
         /**
          * Специальная операция, которая позволяет отличить начальное состояние калькулятора от ситуации после Равенства
          * */
-        Equality,
+        Equality('='),
         /**
          * Умножить
          * */
-        Add,
+        Add('+'),
         /**
          * Вычесть
          * */
-        Subtract,
+        Subtract('-'),
         /**
          * Разделить
          * */
-        Divide,
+        Divide('/'),
         /**
          * Умножить
          * */
-        Multiply,
+        Multiply('*'),
         /**
          * Возвести в степень
          * */
-        Power
+        Power('^');
+        
+        public final char title;
+    
+        Operation(char c)
+        {
+            title = c;
+        }
     }
+    
+
     
     
     
@@ -73,12 +96,12 @@ public class CalcT6
     private JButton btSlash;
     private JButton btZero;
     private JButton btDot;
+    private JPanel pInfo;
+    private JLabel lbStatus;
     
     private JMenuBar _miniBar;
     private Point _mouseDownCursorPos = new Point();
     private JFrame _jf;
-    private double _operandA = 0, _operandB;
-    private Operation _curOperation = Operation.None, _lastOperation;
     
     private static final List<Integer> _validKeyCodes = Arrays.asList(
             KeyEvent.VK_BACK_SLASH, KeyEvent.VK_SLASH,
@@ -96,9 +119,10 @@ public class CalcT6
     private static final DecimalFormat _formatter = new DecimalFormat();
     private final Font _defaultDisplayFont;
     private final String _dot;
+    private final CalculatorState _calcState = new CalculatorState();
     
     //endregion 'Поля и константы'
-   
+    
     
     
     /**
@@ -116,8 +140,13 @@ public class CalcT6
      * */
     public static void main(String[] args)
     {
-        showThreadInfo();
+        if (IS_DEBUG)
+        {
+            showThreadInfo();
+        }
         _formatter.setDecimalSeparatorAlwaysShown(false);
+        //_formatter.setRoundingMode(Ro);
+        _formatter.setMaximumFractionDigits(100);
         SwingUtilities.invokeLater(new Runnable()
         {
             @Override
@@ -125,19 +154,28 @@ public class CalcT6
             {
                 // Устанавливаем более современный кросплатформенный "скин" Nimbus для интерфейса
                 //  (см.: <a href=https://docs.oracle.com/javase/tutorial/uiswing/lookandfeel/nimbus.html></a>)
-                try {
-                    for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                        if ("Nimbus".equals(info.getName())) {
+                try
+                {
+                    for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels())
+                    {
+                        if ("Nimbus".equals(info.getName()))
+                        {
                             UIManager.setLookAndFeel(info.getClassName());
                             break;
                         }
                     }
-                } catch (Exception e) {
+                    //UIManager.setLookAndFeel(new FlatLightLaf());
+                }
+                catch (Exception e)
+                {
                     // If Nimbus is not available, you can set the GUI to another look and feel.
                     JFrame.setDefaultLookAndFeelDecorated(true);
                 }
                 // Создаём нашу фому калькулятора
-                showThreadInfo();
+                if (IS_DEBUG)
+                {
+                    showThreadInfo();
+                }
                 new CalcT6().setActionListeners();
             }
         });
@@ -156,7 +194,10 @@ public class CalcT6
     public CalcT6()
     {
         final String signChangeHotkeyTooltip = "<html>Для смены знака нажмите <b><kbd>Ctrl</kbd> + (<kbd>-</kbd>)</b></html>";
-        showThreadInfo();
+        if (IS_DEBUG)
+        {
+            showThreadInfo();
+        }
         _jf = new JFrame("Калькулятор");
         //_jf.setUndecorated(true);
         _jf.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -166,22 +207,24 @@ public class CalcT6
         _jf.setResizable(false);
         ImageIcon img = new ImageIcon("./basic16.png");
         _jf.setIconImage(img.getImage());
-        //txtDisplay.setMinimumSize(txtDisplay.getPreferredSize());
+        
+        // создаём Меню
+        
         _miniBar = new JMenuBar();
-        JMenu mainMenu = new JMenu("Инструменты");
+        JMenu mainMenu = new JMenu("Ещё...");
         mainMenu.setToolTipText("Реализует задание 1.3");
-        JMenuItem miOpenConverter = mainMenu.add("Конвертер величин");
+        JCheckBoxMenuItem miShowCalcState = new JCheckBoxMenuItem(infoPanelSwitcher);
+        miShowCalcState.setState(pInfo.isVisible());
+        mainMenu.add(miShowCalcState);
+        JMenuItem miOpenConverter = mainMenu.add("Конвертер величин (Мили <-> Километры)");
         miOpenConverter.setToolTipText("Калькулятор работает с двумя параметрами, вводимыми пользователем в окна ввода");
         _miniBar.add(mainMenu);
         _miniBar.setToolTipText("Пс-с-с... Меня можно таскать за это место!");
         _jf.setJMenuBar(_miniBar);
-        _jf.pack();
-        _jf.setLocationByPlatform(true);
-        showThreadInfo("Перед показом окна");
-        txtDisplay.setToolTipText(signChangeHotkeyTooltip);
-        btMinus.setToolTipText(signChangeHotkeyTooltip);
-        //btDot.setActionCommand(Character.toString(_decimalSeparator));
-        _defaultDisplayFont = txtDisplay.getFont();
+        if (IS_DEBUG)
+        {
+            showThreadInfo("Перед показом окна");
+        }
         //TODO: Опасное действие - желательно не выдумывать свои форматы (могут совпасть с чем-то), а использовать из ОС.
         //  Но тогда возникает проблема с обратным преобразование, т.к. Double.parseDouble() - выбрасывает исключение на запятой!
         //  Нужно пользоваться дополнительным классом-обёрткой NumberFormat
@@ -189,18 +232,79 @@ public class CalcT6
         DecimalFormatSymbols dfs = _formatter.getDecimalFormatSymbols();
         dfs.setDecimalSeparator(btDot.getActionCommand().charAt(0));
         _formatter.setDecimalFormatSymbols(dfs);
+        txtDisplay.setToolTipText(signChangeHotkeyTooltip);
+        btMinus.setToolTipText(signChangeHotkeyTooltip);
+        _defaultDisplayFont = txtDisplay.getFont();
+        
+        _jf.setLocationByPlatform(true);
+        _jf.pack();
         _jf.setVisible(true);
-        showThreadInfo("После показа окна");
+        
+        if (IS_DEBUG)
+        {
+            showThreadInfo("После показа окна");
+        }
     }
     
     
     
     //region 'Обработчики'
     
+    private Action infoPanelSwitcher = new AbstractAction("Показывать панель состояния")
+    {
+        /**
+         * Invoked when an action occurs.
+         *
+         * @param e
+         */
+        @Override
+        public void actionPerformed(ActionEvent e)
+        {
+            pInfo.setVisible(!pInfo.isVisible());
+            _jf.pack();
+        }
+    };
+    
+    /**
+     * Обработчик зажатия кнопки на компоненте - нужен для определения стартовой позиции курсора, с которой начинается
+     *  перетаскивание окна
+     *
+     * @implNote почему-то получилось, только когда я разнёс по разным Прослушивателям обработку событий
+     *          первоначального зажатия кнопки мыши и Перемещения мыши в зажатом состоянии.
+     * */
+    private MouseListener mouseDownHandler = new MouseAdapter()
+    {
+        @Override
+        public void mousePressed(MouseEvent e)
+        {
+            super.mousePressed(e);
+            // определяем начальную позицию курсора, с которой началось перетаскивание
+            _mouseDownCursorPos = e.getLocationOnScreen();
+        }
+    };
+    
+    /**
+     * Обработчик перетаскивания окна - нужен для организации перетаскивания окна за произвольные компоненты
+     * */
+    private MouseMotionListener mouseDragHandler = new MouseMotionListener()
+    {
+        @Override
+        public void mouseDragged(MouseEvent e)
+        {
+            _jf.setLocation(_jf.getX() + (e.getXOnScreen() - _mouseDownCursorPos.x), _jf.getY() + + (e.getYOnScreen() - _mouseDownCursorPos.y));
+            _mouseDownCursorPos = e.getLocationOnScreen();
+        }
+        
+        @Override
+        public void mouseMoved(MouseEvent e)
+        {
+        }
+    };
+    
     /**
      * Обработчик нажатия клавиш на форме
      */
-    KeyListener keyPressedHandler = new KeyAdapter()
+    private KeyListener keyPressedHandler = new KeyAdapter()
     {
         @Override
         public void keyPressed(KeyEvent e)
@@ -209,9 +313,11 @@ public class CalcT6
             if ((_validKeyCodes.contains(keyCode) || (keyCode >= KeyEvent.VK_0 && keyCode <= KeyEvent.VK_9) ||
                     (keyCode >= KeyEvent.VK_NUMPAD0 && keyCode <= KeyEvent.VK_NUMPAD9)))
             {
-                System.out.println("Обработка нажатия клавиши перехвачена:");
-                System.out.println(keyCode + " '" + e.getKeyChar() + "' \"" + KeyEvent.getKeyText(keyCode) + "\"");
-                
+                if (IS_DEBUG)
+                {
+                    System.out.println("Обработка нажатия клавиши перехвачена:");
+                    System.out.println(keyCode + " '" + e.getKeyChar() + "' \"" + KeyEvent.getKeyText(keyCode) + "\"");
+                }
                 if (keyCode == KeyEvent.VK_DELETE)
                 {
                     if (e.isShiftDown() || e.isControlDown())
@@ -250,7 +356,7 @@ public class CalcT6
                     try
                     {
                         double number = -Double.parseDouble(txtDisplay.getText().trim());
-                        txtDisplay.setText(number == 0 ? "0" : Double.toString(number));
+                        txtDisplay.setText(_formatter.format(number));
                     }
                     catch (Exception ex)
                     {
@@ -267,7 +373,7 @@ public class CalcT6
             }
             else
             {
-                if (keyCode != KeyEvent.VK_SHIFT && keyCode != KeyEvent.VK_CONTROL && keyCode != KeyEvent.VK_ALT)
+                if (IS_DEBUG && keyCode != KeyEvent.VK_SHIFT && keyCode != KeyEvent.VK_CONTROL && keyCode != KeyEvent.VK_ALT)
                 {
                     System.out.println("Обработка нажатия клавиши передана компоненту: " + super.getClass().getName());
                     keyCode = e.getExtendedKeyCode();
@@ -284,7 +390,7 @@ public class CalcT6
      * @implNote    Если это кнопка с цифрой, то добавляем её к тексту поля ввода, иначе показываем знак операции, вместо
      *  текущего текста. В любом случае сначала запоминаем текущие показания "дисплея".
      * */
-    ActionListener clickHandler = new ActionListener()
+    private ActionListener clickHandler = new ActionListener()
     {
         @Override
         public void actionPerformed(ActionEvent e)
@@ -293,18 +399,19 @@ public class CalcT6
             // Кнопка "Равно (=)" - вычислить результат и показать на дисплее
             if (firedComp == btCalculate)
             {
-                if (_curOperation == Operation.Equality)
+                // реализуем механизм повтора последней операции при повторном нажатии (=)
+                if (CalculatorState.getCurOperation() == Operation.Equality)
                 {
-                    _curOperation = _lastOperation;
-                    _operandA = calculate(true);
+                    CalculatorState.setCurOperation(CalculatorState.getLastOperation());
+                    CalculatorState.setOperandA(calculate(true));
                 }
                 else
                 {
-                    _operandA = calculate();
+                    CalculatorState.setOperandA(calculate());
                 }
-                _lastOperation = _curOperation;
-                _curOperation = Operation.Equality;
-                txtDisplay.setText(_formatter.format(_operandA));
+                CalculatorState.setLastOperation(CalculatorState.getCurOperation());
+                CalculatorState.setCurOperation(Operation.Equality);
+                txtDisplay.setText(_formatter.format(CalculatorState.getOperandA()));
             }
             else if (firedComp == btBackspace)
             {
@@ -324,16 +431,19 @@ public class CalcT6
                 catch (Exception ex)
                 {
                     // на дисплее не число - значит это операция - отменяем её
-                    txtDisplay.setText((_operandA == 0) ? "0" : Double.toString(_operandA));
-                    //txtDisplay.setText(_operandA != 0 ? String.format("%s", _operandA) : "0");
-                    _curOperation = Operation.None;
+                    txtDisplay.setText(_formatter.format(CalculatorState.getOperandA()));
+                    CalculatorState.setCurOperation(Operation.None);
                 }
-                //showThreadInfo(btBackspace.getText());
+                if (IS_DEBUG)
+                {
+                    showThreadInfo(btBackspace.getText());
+                }
             }
             else if (firedComp == btClearAll)
             {
-                _operandA = _operandB = 0;
-                _curOperation = Operation.None;
+                CalculatorState.setOperandA(0);
+                CalculatorState.setOperandB(0);
+                CalculatorState.setCurOperation(Operation.None);
                 txtDisplay.setText("0");
             }
             else if (firedComp == btClearDisplay)
@@ -346,11 +456,11 @@ public class CalcT6
             }
             else if (firedComp == btPlus || firedComp == btMinus || firedComp == btStar || firedComp == btSlash || firedComp == btPower)
             {
-                _curOperation = firedComp == btStar ? Operation.Multiply : (firedComp == btSlash ? Operation.Divide :
-                        (firedComp == btMinus ? Operation.Subtract : (firedComp == btPlus ? Operation.Add : Operation.Power)));
+                CalculatorState.setCurOperation(firedComp == btStar ? Operation.Multiply : (firedComp == btSlash ? Operation.Divide :
+                        (firedComp == btMinus ? Operation.Subtract : (firedComp == btPlus ? Operation.Add : Operation.Power))));
                 try
                 {
-                    _operandA = Double.parseDouble(txtDisplay.getText().trim());
+                    CalculatorState.setOperandA(Double.parseDouble(txtDisplay.getText().trim()));
                 }
                 catch (Exception ex)
                 {
@@ -362,7 +472,7 @@ public class CalcT6
             else
             {
                 String key = ((JButton)firedComp).getActionCommand();
-                String oldText = _curOperation == Operation.Equality ? "" : txtDisplay.getText().trim();
+                String oldText = CalculatorState.getCurOperation() == Operation.Equality ? "" : txtDisplay.getText().trim();
                 String res;
                 try         // если на экране число, то нажатую цифру нужно дописать к нему (если это не результат вычислений, тогда его нужно заменять)
                 {
@@ -382,9 +492,9 @@ public class CalcT6
                 }
                 finally
                 {
-                    if (_curOperation == Operation.Equality)
+                    if (CalculatorState.getCurOperation() == Operation.Equality)
                     {
-                        _curOperation = Operation.None;
+                        CalculatorState.setCurOperation(Operation.None);
                     }
                 }
                 txtDisplay.setText(res);
@@ -400,70 +510,52 @@ public class CalcT6
     //region 'Методы'
     
     /**
-     * Вспомогательный метод вывода в консоль информации о текущем потоке выполнения
-     * */
-    private static void showThreadInfo()
-    {
-        showThreadInfo("");
-    }
-    /**
-     * Вспомогательный метод вывода в консоль информации о текущем потоке выполнения с произвольным сообщением
-     * */
-    private static void showThreadInfo(String text)
-    {
-        Thread curThread = Thread.currentThread();
-        if (!text.isEmpty())
-        {
-            System.out.printf("Сообщение: \"%s\" - ", text);
-        }
-        System.out.printf("Method: \"%s\", Thread: \"%s\", (id: %d)%n" , curThread.getStackTrace()[3].getMethodName(),
-                curThread.getName(), curThread.getId());
-    }
-    
-    /**
      * Метод навешивания обработчиков для компонентов
      * */
     private void setActionListeners()
     {
-        showThreadInfo();
+        if (IS_DEBUG)
+        {
+            showThreadInfo();
+        }
+        CalculatorState.addStateChangeListener(e -> {
+            String a = _formatter.format(CalculatorState.getOperandA()).trim();
+            String b = _formatter.format(CalculatorState.getOperandB()).trim();
+            Operation op = CalculatorState.getCurOperation();
+            if (e.isOperationChange)
+            {
+                if (op == Operation.Equality)
+                {
+                    lbStatus.setText(a + " " + CalculatorState.getLastOperation().title + " " + b + " " + op.title);
+                }
+                else if (op == Operation.None)
+                {
+                    lbStatus.setText(" ");      // ставим пробел, т.к. при пустой строке панель пропадает с экрана!?
+                }
+                else
+                {
+                    lbStatus.setText(a + " " + op.title);
+                }
+            }
+            else
+            {
+                lbStatus.setText(a + " " + op.title + " " + b);
+            }
+        });
         Arrays.stream(mainPanel.getComponents()).filter(x -> x instanceof JButton).forEach(b -> ((JButton) b).addActionListener(
                 this.clickHandler
         ));
         /*
           Обработчик поддержки перетаскивания окна за указанный компонент (строка меню)
-         
-          @implNote    почему-то получилось, только когда я разнёс по разным Прослушивателям обработку событий
-         *  первоначального зажатия кнопки мыши и Перемещения мыши в зажатом состоянии.
          * */
-        _miniBar.addMouseListener(new MouseAdapter()
-        {
-            @Override
-            public void mousePressed(MouseEvent e)
-            {
-                super.mousePressed(e);
-                // определяем начальную позицию курсора, с которой началось перетаскивание
-                _mouseDownCursorPos = e.getLocationOnScreen();
-            }
-        });
-    
+        _miniBar.addMouseListener(mouseDownHandler);
+        pInfo.addMouseListener(mouseDownHandler);
         /*
           Обработчик поддержки перетаскивания окна за указанный компонент (само перетаскивание)
           */
-        _miniBar.addMouseMotionListener(new MouseMotionListener()
-        {
-            @Override
-            public void mouseDragged(MouseEvent e)
-            {
-                _jf.setLocation(_jf.getX() + (e.getXOnScreen() - _mouseDownCursorPos.x), _jf.getY() + + (e.getYOnScreen() - _mouseDownCursorPos.y));
-                _mouseDownCursorPos = e.getLocationOnScreen();
-            }
-            
-            @Override
-            public void mouseMoved(MouseEvent e)
-            {
-            }
-        });
-    
+        _miniBar.addMouseMotionListener(mouseDragHandler);
+        pInfo.addMouseMotionListener(mouseDragHandler);
+        
         //
         // Обработчик изменения текста в компоненте Дисплея - подгоняет размер шрифта под отображаемый текст
         //
@@ -485,7 +577,7 @@ public class CalcT6
                     testFont = testFont.deriveFont(testFont.getSize() - 1f);
                     fmetr = txtDisplay.getFontMetrics(testFont);
                 }
-                while (fmetr.getHeight() > 20);
+                while (fmetr.getHeight() > 15);
                 
                 if (testFont != txtDisplay.getFont())
                 {
@@ -531,38 +623,39 @@ public class CalcT6
     {
         double result = 0;
         double displayedNumber = Double.NaN;
+        double operandA = CalculatorState.getOperandA();
         try
         {
-            displayedNumber = isRepeatLast ? _operandB : Double.parseDouble(txtDisplay.getText().trim());
-            switch (_curOperation)
+            displayedNumber = isRepeatLast ? CalculatorState.getOperandB() : Double.parseDouble(txtDisplay.getText().trim());
+            switch (CalculatorState.getCurOperation())
             {
                 case Add:
                 {
-                    result = _operandA + displayedNumber;
+                    result = operandA + displayedNumber;
                     break;
                 }
                 case Divide:
                 {
-                    result = _operandA / displayedNumber;
+                    result = operandA / displayedNumber;
                     break;
                 }
                 case Multiply:
                 {
-                    result = _operandA * displayedNumber;
+                    result = operandA * displayedNumber;
                     break;
                 }
                 case Subtract:
                 {
-                    result = _operandA - displayedNumber;
+                    result = operandA - displayedNumber;
                     break;
                 }
                 case Power:     // при возведении в степень на экране будет значение библиотечной функции
                 {
-                    result = Math.pow(_operandA, displayedNumber);
-                    double myResult = _operandA;
+                    result = Math.pow(operandA, displayedNumber);
+                    double myResult = operandA;
                     for (int i = 0; i < displayedNumber - 1; i++)
                     {
-                        myResult *= _operandA;
+                        myResult *= operandA;
                     }
                     String mes = MessageFormat.format("<html><p>Результат вычисления через функцию <i>Math.pow()</i>: <b>{0}</b></p>" +
                                     "<p>Результат вычисления без библиотечной функции: <b>{0}</b></p></html>", result, myResult);
@@ -574,7 +667,7 @@ public class CalcT6
                     result = displayedNumber;
                 }
             }
-            this._operandB = displayedNumber;
+            CalculatorState.setOperandB(displayedNumber);
         }
         catch (NumberFormatException nex)
         {
@@ -582,11 +675,33 @@ public class CalcT6
         }
         catch (Exception ex)
         {
-            System.err.printf("Ошибка вычислений! Операнд 1: %s, Операнд 2: %s, Операция: %s", _operandA, displayedNumber, _curOperation);
+            System.err.printf("Ошибка вычислений! Операнд 1: %s, Операнд 2: %s, Операция: %s", operandA, displayedNumber,
+                    CalculatorState.getCurOperation());
             System.err.println();
             System.err.println(ex.toString());
         }
         return result;
+    }
+    
+    /**
+     * Вспомогательный метод вывода в консоль информации о текущем потоке выполнения
+     * */
+    private static void showThreadInfo()
+    {
+        showThreadInfo("");
+    }
+    /**
+     * Вспомогательный метод вывода в консоль информации о текущем потоке выполнения с произвольным сообщением
+     * */
+    private static void showThreadInfo(String text)
+    {
+        Thread curThread = Thread.currentThread();
+        if (!text.isEmpty())
+        {
+            System.out.printf("Сообщение: \"%s\" - ", text);
+        }
+        System.out.printf("Method: \"%s\", Thread: \"%s\", (id: %d)%n" , curThread.getStackTrace()[3].getMethodName(),
+                curThread.getName(), curThread.getId());
     }
     
     //endregion 'Методы'
