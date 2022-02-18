@@ -67,9 +67,10 @@ public class CalculatorState
         return result;
     }
     
-    public static void setResult(double result)
+    public static void setResult(double value)
     {
-        CalculatorState.result = result;
+        CalculatorState.result = value;
+        fireCalcStateChangedEvent(new CalcStateChangedEvent());
     }
     
     /**
@@ -102,6 +103,14 @@ public class CalculatorState
     
     
     //region 'Методы'
+    
+    public static void clearState()
+    {
+        operandA = operandB = result = Double.NaN;
+        fireCalcStateChangedEvent(new CalcStateChangedEvent());
+        curOperation = CalcT6.Operation.None;
+        fireCalcStateChangedEvent(new CalcStateChangedEvent(true));
+    }
     
     public static synchronized void addStateChangeListener(CalcStateChangedEventListener listener)
     {

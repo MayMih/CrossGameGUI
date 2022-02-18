@@ -1,7 +1,5 @@
 package org.mmu.task6;
 
-import com.formdev.flatlaf.FlatLightLaf;
-
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -205,8 +203,15 @@ public class CalcT6
         //_jf.setSize(320, 480);
         //_jf.setPreferredSize(new Dimension(320, 240));
         _jf.setResizable(false);
-        ImageIcon img = new ImageIcon("./basic16.png");
-        _jf.setIconImage(img.getImage());
+        try
+        {
+            ImageIcon img = new ImageIcon(getClass().getResource("/basic16.png"));
+            _jf.setIconImage(img.getImage());
+        }
+        catch (Exception ex)
+        {
+            System.err.println("Не найден ресурс: " + getClass().getResource("/basic16.png"));
+        }
         
         // создаём Меню
         
@@ -403,15 +408,15 @@ public class CalcT6
                 if (CalculatorState.getCurOperation() == Operation.Equality)
                 {
                     CalculatorState.setCurOperation(CalculatorState.getLastOperation());
-                    CalculatorState.setOperandA(calculate(true));
+                    CalculatorState.setResult(calculate(true));
                 }
                 else
                 {
-                    CalculatorState.setOperandA(calculate());
+                    CalculatorState.setResult(calculate());
                 }
                 CalculatorState.setLastOperation(CalculatorState.getCurOperation());
                 CalculatorState.setCurOperation(Operation.Equality);
-                txtDisplay.setText(_formatter.format(CalculatorState.getOperandA()));
+                txtDisplay.setText(_formatter.format(CalculatorState.getResult()));
             }
             else if (firedComp == btBackspace)
             {
@@ -441,13 +446,16 @@ public class CalcT6
             }
             else if (firedComp == btClearAll)
             {
-                CalculatorState.setOperandA(0);
-                CalculatorState.setOperandB(0);
-                CalculatorState.setCurOperation(Operation.None);
+                CalculatorState.clearState();
                 txtDisplay.setText("0");
             }
             else if (firedComp == btClearDisplay)
             {
+                // При удалении с экрана результата заменяем результат Первым операндом
+                if (CalculatorState.getCurOperation() == Operation.Equality)
+                {
+                    CalculatorState.setResult(CalculatorState.getOperandA());
+                }
                 txtDisplay.setText("0");
             }
             else if (firedComp == btDot && txtDisplay.getText().contains(btDot.getActionCommand()))
@@ -456,6 +464,7 @@ public class CalcT6
             }
             else if (firedComp == btPlus || firedComp == btMinus || firedComp == btStar || firedComp == btSlash || firedComp == btPower)
             {
+                CalculatorState.setOperandB(Double.NaN);
                 CalculatorState.setCurOperation(firedComp == btStar ? Operation.Multiply : (firedComp == btSlash ? Operation.Divide :
                         (firedComp == btMinus ? Operation.Subtract : (firedComp == btPlus ? Operation.Add : Operation.Power))));
                 try
@@ -471,10 +480,12 @@ public class CalcT6
             // нажата кнопка с цифрой или точка
             else
             {
+                CalculatorState.setOperandB(Double.NaN);
                 String key = ((JButton)firedComp).getActionCommand();
                 String oldText = CalculatorState.getCurOperation() == Operation.Equality ? "" : txtDisplay.getText().trim();
                 String res;
-                try         // если на экране число, то нажатую цифру нужно дописать к нему (если это не результат вычислений, тогда его нужно заменять)
+                // если на экране число, то нажатую цифру нужно дописать к нему (если это не результат вычислений, тогда экран нужно заменять)
+                try
                 {
                     Double num = Double.parseDouble(oldText);
                     if (num == 0 && key.equalsIgnoreCase(_dot))
@@ -518,33 +529,12 @@ public class CalcT6
         {
             showThreadInfo();
         }
-        CalculatorState.addStateChangeListener(e -> {
-            String a = _formatter.format(CalculatorState.getOperandA()).trim();
-            String b = _formatter.format(CalculatorState.getOperandB()).trim();
-            Operation op = CalculatorState.getCurOperation();
-            if (e.isOperationChange)
-            {
-                if (op == Operation.Equality)
-                {
-                    lbStatus.setText(a + " " + CalculatorState.getLastOperation().title + " " + b + " " + op.title);
-                }
-                else if (op == Operation.None)
-                {
-                    lbStatus.setText(" ");      // ставим пробел, т.к. при пустой строке панель пропадает с экрана!?
-                }
-                else
-                {
-                    lbStatus.setText(a + " " + op.title);
-                }
-            }
-            else
-            {
-                lbStatus.setText(a + " " + op.title + " " + b);
-            }
-        });
-        Arrays.stream(mainPanel.getComponents()).filter(x -> x instanceof JButton).forEach(b -> ((JButton) b).addActionListener(
-                this.clickHandler
-        ));
+        txtDisplay.addKeyListener(keyPressedHandler);
+        
+        // навешиваем обработчики на все кнопки
+        Arrays.stream(mainPanel.getComponents()).filter(x -> x instanceof JButton).forEach(b ->
+                ((JButton) b).addActionListener(this.clickHandler)
+        );
         /*
           Обработчик поддержки перетаскивания окна за указанный компонент (строка меню)
          * */
@@ -555,6 +545,38 @@ public class CalcT6
           */
         _miniBar.addMouseMotionListener(mouseDragHandler);
         pInfo.addMouseMotionListener(mouseDragHandler);
+        //
+        // Обработчик обновления панели с историей вычислений
+        //
+        CalculatorState.addStateChangeListener(e -> {
+            Double num = CalculatorState.getOperandA();
+            String a = Double.isNaN(num) ? "" : _formatter.format(num).trim();
+            num = CalculatorState.getOperandB();
+            String b = Double.isNaN(num) ? "" : _formatter.format(num).trim();
+            String r = _formatter.format(CalculatorState.getResult()).trim();
+            Operation op = CalculatorState.getCurOperation();
+            Operation lastOp = CalculatorState.getLastOperation();
+            
+            if (e.isOperationChange)
+            {
+                if (op == Operation.Equality && lastOp != Operation.None)
+                {
+                    lbStatus.setText(a + " " + CalculatorState.getLastOperation().title + " " + b + " " + op.title);
+                }
+                else if (op == Operation.None)
+                {
+                    lbStatus.setText(" ");      // ставим пробел, т.к. при пустой строке панель пропадает с экрана?!
+                }
+                else
+                {
+                    lbStatus.setText(r + " " + op.title);
+                }
+            }
+            else if (op != Operation.Equality && op != Operation.None)
+            {
+                lbStatus.setText(a + " " + op.title + " " + b);
+            }
+        });
         
         //
         // Обработчик изменения текста в компоненте Дисплея - подгоняет размер шрифта под отображаемый текст
@@ -605,8 +627,6 @@ public class CalcT6
                 //  <a href=https://docs.oracle.com/javase/tutorial/uiswing/events/documentlistener.html></a>)
             }
         });
-        
-        txtDisplay.addKeyListener(keyPressedHandler);
     }
     
     private double calculate()
@@ -622,38 +642,37 @@ public class CalcT6
     private double calculate(boolean isRepeatLast)
     {
         double result = 0;
-        double displayedNumber = Double.NaN;
-        double operandA = CalculatorState.getOperandA();
+        double operandA = isRepeatLast ? CalculatorState.getResult() : CalculatorState.getOperandA();
+        double operandB = isRepeatLast ? CalculatorState.getOperandB() : Double.parseDouble(txtDisplay.getText().trim());
         try
         {
-            displayedNumber = isRepeatLast ? CalculatorState.getOperandB() : Double.parseDouble(txtDisplay.getText().trim());
             switch (CalculatorState.getCurOperation())
             {
                 case Add:
                 {
-                    result = operandA + displayedNumber;
+                    result = operandA + operandB;
                     break;
                 }
                 case Divide:
                 {
-                    result = operandA / displayedNumber;
+                    result = operandA / operandB;
                     break;
                 }
                 case Multiply:
                 {
-                    result = operandA * displayedNumber;
+                    result = operandA * operandB;
                     break;
                 }
                 case Subtract:
                 {
-                    result = operandA - displayedNumber;
+                    result = operandA - operandB;
                     break;
                 }
                 case Power:     // при возведении в степень на экране будет значение библиотечной функции
                 {
-                    result = Math.pow(operandA, displayedNumber);
+                    result = Math.pow(operandA, operandB);
                     double myResult = operandA;
-                    for (int i = 0; i < displayedNumber - 1; i++)
+                    for (int i = 0; i < operandB - 1; i++)
                     {
                         myResult *= operandA;
                     }
@@ -662,12 +681,20 @@ public class CalcT6
                     JOptionPane.showMessageDialog(btCalculate, mes,"Результат", JOptionPane.INFORMATION_MESSAGE);
                     break;
                 }
+                case None:
+                {
+                    break;
+                }
                 default:
                 {
-                    result = displayedNumber;
+                    JOptionPane.showMessageDialog(btCalculate, "Неизвестная операция " + CalculatorState.getCurOperation(),
+                            "Ошибка", JOptionPane.ERROR_MESSAGE);
                 }
             }
-            CalculatorState.setOperandB(displayedNumber);
+            //
+            CalculatorState.setOperandA(operandA);
+            //
+            CalculatorState.setOperandB(operandB);
         }
         catch (NumberFormatException nex)
         {
@@ -675,7 +702,7 @@ public class CalcT6
         }
         catch (Exception ex)
         {
-            System.err.printf("Ошибка вычислений! Операнд 1: %s, Операнд 2: %s, Операция: %s", operandA, displayedNumber,
+            System.err.printf("Ошибка вычислений! Операнд 1: %s, Операнд 2: %s, Операция: %s", operandA, operandB,
                     CalculatorState.getCurOperation());
             System.err.println();
             System.err.println(ex.toString());
