@@ -186,10 +186,12 @@ public class CalcT6
     private static final String ABOUT_TEXT = "<html><body>" +
             "<h2>Учебный калькулятор</h2><p>Создан Маюровым Михаилом Юрьевичем в 2022 г. в рамках выполнения задания №6 " +
             "курса GeekBrains \"Основы Java. Интерактивный курс\"</p>" +
-            "<p>В качестве возможных тем офомления интерфейса задействован открытый проект <b>FlatLaf</b> компании <l>FormDev</l></p>" +
+            "<p>В качестве возможных тем офомления интерфейса задействован открытый проект <b>FlatLaf</b> компании <i>FormDev</i></p>" +
             "<p>Ссылки: <a href=https://www.formdev.com/flatlaf/>FlatLaf - Flat Look and Feel</a></p>" +
             "<p>Лицензия на FlatLaf: <a href=https://github.com/JFormDesigner/FlatLaf/blob/master/LICENSE>Apache 2.0 License</a></p>" +
             "</body></html>";
+    private static final String SIGN_CHANGE_HOTKEY_TOOLTIP = "<html>Для смены знака нажмите <b><kbd>Ctrl</kbd> + (<kbd>-</kbd>)</b></html>";
+    private static final String ICON_FILE_RESOURCE_NAME = "/basic16.png";
     
     //endregion 'Поля и константы'
     
@@ -230,7 +232,6 @@ public class CalcT6
                     {
                         if (Skin.Nimbus.name().equalsIgnoreCase(info.getName()))
                         {
-                            //UIManager.setLookAndFeel(info.getClassName());
                             Skin.Nimbus.setLAFClassPath(info.getClassName());
                             break;
                         }
@@ -282,8 +283,6 @@ public class CalcT6
      */
     public CalcT6()
     {
-        final String signChangeHotkeyTooltip = "<html>Для смены знака нажмите <b><kbd>Ctrl</kbd> + (<kbd>-</kbd>)</b></html>";
-        final String iconFileResourceName = "/basic16.png";
         if (IS_DEBUG)
         {
             showThreadInfo();
@@ -295,12 +294,12 @@ public class CalcT6
         _jf.setResizable(false);
         try
         {
-            ImageIcon img = new ImageIcon(Objects.requireNonNull(getClass().getResource(iconFileResourceName)));
+            ImageIcon img = new ImageIcon(Objects.requireNonNull(getClass().getResource(ICON_FILE_RESOURCE_NAME)));
             _jf.setIconImage(img.getImage());
         }
         catch (Exception ex)
         {
-            System.err.println("Не найден ресурс: " + iconFileResourceName);
+            System.err.println("Не найден ресурс: " + ICON_FILE_RESOURCE_NAME);
         }
         
         // создаём Меню
@@ -317,7 +316,7 @@ public class CalcT6
         {
             JRadioButtonMenuItem rb = new JRadioButtonMenuItem(skn.name(), skn == this.DEFAULT_LOOK_AND_FEEL);
             rb.setToolTipText(skn.toolTip);
-            rb.addActionListener(skinChangeMenuClickHandler);
+            rb.addItemListener(skinChangeMenuClickHandler);
             group.add(rb);
             skinsMenu.add(rb);
         }
@@ -328,8 +327,8 @@ public class CalcT6
             public void actionPerformed(ActionEvent e)
             {
                 JOptionPane.showMessageDialog((Component) e.getSource(), "Задание: \"Калькулятор работает с " +
-                        "двумя параметрами, вводимыми пользователем в окна ввода\" пока не реализовано, но полагаю" +
-                        "я с лихвой это компенсировал объёмом самого калькулятора");
+                        "двумя параметрами, вводимыми пользователем в окна ввода\" пока не реализовано, но полагаю " +
+                        "я с лихвой это компенсировал объёмом самого калькулятора", "Ой", JOptionPane.WARNING_MESSAGE);
             }
         });
         mainMenu.add(aboutMenuClickHandler);
@@ -345,15 +344,16 @@ public class CalcT6
         //  Нужно пользоваться дополнительным классом-обёрткой NumberFormat, что сильно удлиняет вызовы.
         _dot = btDot.getActionCommand();
         DecimalFormatSymbols dfs = _formatter.getDecimalFormatSymbols();
-        dfs.setDecimalSeparator(btDot.getActionCommand().charAt(0));
+        dfs.setDecimalSeparator(_dot.charAt(0));
         _formatter.setDecimalFormatSymbols(dfs);
-        txtDisplay.setToolTipText(signChangeHotkeyTooltip);
-        btMinus.setToolTipText(signChangeHotkeyTooltip);
+        txtDisplay.setToolTipText(SIGN_CHANGE_HOTKEY_TOOLTIP);
+        btMinus.setToolTipText(SIGN_CHANGE_HOTKEY_TOOLTIP);
         _defaultDisplayFont = txtDisplay.getFont();
         // Не редактируемое поле ввода для диалога "О программе"
         _txtAbout = new JEditorPane("text/html", ABOUT_TEXT);
         _txtAbout.setEditable(false);
         //TODO: похоже установка фона полей ввода не срабатывает для снина Nimbus
+        // возможное решение: {@see https://stackoverflow.com/a/33446134/2323972}
         _txtAbout.setBackground(lbStatus.getBackground());
         
         _jf.setLocationByPlatform(true);
@@ -373,17 +373,23 @@ public class CalcT6
     /**
      * Обработчик меню "Сменить скин"
      */
-    private ActionListener skinChangeMenuClickHandler = new ActionListener()
+    private ItemListener skinChangeMenuClickHandler = new ItemListener()
     {
+        /**
+         * Invoked when an item has been selected or deselected by the user.
+         * The code written for this method performs the operations
+         * that need to occur when an item is selected (or deselected).
+         *
+         * @param e
+         */
         @Override
-        public void actionPerformed(ActionEvent e)
+        public void itemStateChanged(ItemEvent e)
         {
             try
             {
-                JRadioButtonMenuItem rb = (JRadioButtonMenuItem)e.getSource();
+                JMenuItem rb = (JMenuItem)e.getItemSelectable();
                 Skin skn = Skin.valueOf(rb.getText());
                 //TODO: почему-то после смены стиля теряются настройки шрифта {@link txtDisplay}
-                //Font fnt = txtDisplay.getFont();
                 UIManager.setLookAndFeel(skn.getLAFClassPath());
                 SwingUtilities.updateComponentTreeUI(_jf);
                 txtDisplay.setFont(_defaultDisplayFont);

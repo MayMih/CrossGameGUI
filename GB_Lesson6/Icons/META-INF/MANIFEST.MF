@@ -1,3 +1,4 @@
 Manifest-Version: 1.0
 Main-Class: org.mmu.task6.CalcT6
+Class-Path: ./lib/flatlaf-2.0.1.jar
 

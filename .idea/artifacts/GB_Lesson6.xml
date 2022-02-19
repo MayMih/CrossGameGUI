@@ -1,0 +1,17 @@
+<component name="ArtifactManager">
+  <artifact name="GB_Lesson6">
+    <output-path>$PROJECT_DIR$/out/artifacts/CalcT6_jar</output-path>
+    <root id="root">
+      <element id="archive" name="CalcT6.jar">
+        <element id="directory" name="META-INF">
+          <element id="file-copy" path="$PROJECT_DIR$/GB_Lesson6/Icons/META-INF/MANIFEST.MF" />
+        </element>
+        <element id="module-output" name="GB_Lesson6" />
+        <element id="dir-copy" path="$PROJECT_DIR$/GB_Lesson6/Icons" />
+      </element>
+      <element id="directory" name="lib">
+        <element id="file-copy" path="$PROJECT_DIR$/lib/flatlaf-2.0.1.jar" />
+      </element>
+    </root>
+  </artifact>
+</component>
