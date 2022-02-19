@@ -3,6 +3,8 @@ package org.mmu.task6;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.event.HyperlinkEvent;
+import javax.swing.event.HyperlinkListener;
 import java.awt.*;
 import java.awt.event.*;
 import java.text.DecimalFormat;
@@ -72,7 +74,69 @@ public class CalcT6
         }
     }
     
-
+    /**
+     * Перечисление возможных стилей интерфейса
+     * */
+    enum Skin
+    {
+        System("Стиль ОС по умолчанию", UIManager.getSystemLookAndFeelClassName()),
+        /**
+         * Стандартный кроссплатформенный стиль интерфейса
+         * */
+        Metal("Стандартный кроссплатформенный стиль интерфейса", UIManager.getCrossPlatformLookAndFeelClassName()),
+        /**
+         * Современный кроссплатформенный стиль интерфейса (начиная с Java 6)
+         * */
+        Nimbus("Современный кроссплатформенный стиль интерфейса (начиная с Java 6)"),
+        /**
+         * Сторонний бесплатный стиль - светлая тема -  (минимум Java 8)
+         * @see <a href=https://www.formdev.com/flatlaf/>FlatLaf - Flat Look and Feel</>
+         * */
+        FlatLight("Сторонний бесплатный стиль - светлая тема - (минимум Java 8)", "com.formdev.flatlaf.FlatLightLaf"),
+        /**
+         * Сторонний бесплатный стиль - тёмная тема - (минимум Java 8)
+         * @see <a href=https://www.formdev.com/flatlaf/themes/>FlatLaf - Flat Look and Feel</>
+         * */
+        FlatDark("Сторонний бесплатный стиль - светлая тема - (минимум Java 8)", "com.formdev.flatlaf.FlatDarkLaf"),
+        /**
+         * Сторонний бесплатный стиль - тёмная тема - (минимум Java 8)
+         * @see <a href=https://www.formdev.com/flatlaf/themes/>FlatLaf - Flat Look and Feel</>
+         * */
+        FlatIdea("Сторонний бесплатный стиль - свелая тема в духе ItelliJ Idea 2019.2+ - (минимум Java 8)",
+                "com.formdev.flatlaf.FlatIntelliJLaf"),
+        /**
+         * Сторонний бесплатный стиль - тёмная тема - (минимум Java 8)
+         * @see <a href=https://www.formdev.com/flatlaf/themes/>FlatLaf - Flat Look and Feel</>
+         * */
+        FlatDracula("Сторонний бесплатный стиль - тёмная тема в духе ItelliJ Idea 2019.2+ - (минимум Java 8)",
+                "com.formdev.flatlaf.FlatDarculaLaf");
+        
+        private String lafClassPath;
+        private final String toolTip;
+        
+        Skin() { this(""); };
+        
+        Skin(String description)
+        {
+            toolTip = description;
+        }
+    
+        Skin(String description, String lafPath)
+        {
+            this(description);
+            lafClassPath = lafPath;
+        }
+        
+        public void setLAFClassPath(String path)
+        {
+            lafClassPath = path;
+        }
+        
+        public String getLAFClassPath()
+        {
+            return lafClassPath;
+        }
+    }
     
     
     
@@ -100,6 +164,7 @@ public class CalcT6
     private JMenuBar _miniBar;
     private Point _mouseDownCursorPos = new Point();
     private JFrame _jf;
+    private final JEditorPane _txtAbout;
     
     private static final List<Integer> _validKeyCodes = Arrays.asList(
             KeyEvent.VK_BACK_SLASH, KeyEvent.VK_SLASH,
@@ -113,11 +178,18 @@ public class CalcT6
             KeyEvent.VK_MULTIPLY,
             KeyEvent.VK_COLON);
     
-    //private static final char _decimalSeparator = new DecimalFormat().getDecimalFormatSymbols().getDecimalSeparator();
+    private static final Skin DEFAULT_LOOK_AND_FEEL = Skin.Nimbus;
     private static final DecimalFormat _formatter = new DecimalFormat();
     private final Font _defaultDisplayFont;
     private final String _dot;
     private final CalculatorState _calcState = new CalculatorState();
+    private static final String ABOUT_TEXT = "<html><body>" +
+            "<h2>Учебный калькулятор</h2><p>Создан Маюровым Михаилом Юрьевичем в 2022 г. в рамках выполнения задания №6 " +
+            "курса GeekBrains \"Основы Java. Интерактивный курс\"</p>" +
+            "<p>В качестве возможных тем офомления интерфейса задействован открытый проект <b>FlatLaf</b> компании <l>FormDev</l></p>" +
+            "<p>Ссылки: <a href=https://www.formdev.com/flatlaf/>FlatLaf - Flat Look and Feel</a></p>" +
+            "<p>Лицензия на FlatLaf: <a href=https://github.com/JFormDesigner/FlatLaf/blob/master/LICENSE>Apache 2.0 License</a></p>" +
+            "</body></html>";
     
     //endregion 'Поля и константы'
     
@@ -156,17 +228,24 @@ public class CalcT6
                 {
                     for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels())
                     {
-                        if ("Nimbus".equals(info.getName()))
+                        if (Skin.Nimbus.name().equalsIgnoreCase(info.getName()))
                         {
-                            UIManager.setLookAndFeel(info.getClassName());
+                            //UIManager.setLookAndFeel(info.getClassName());
+                            Skin.Nimbus.setLAFClassPath(info.getClassName());
                             break;
                         }
                     }
                     //UIManager.setLookAndFeel(new FlatLightLaf());
+                    UIManager.setLookAndFeel(CalcT6.DEFAULT_LOOK_AND_FEEL.getLAFClassPath());
                 }
                 catch (Exception e)
                 {
                     // If Nimbus is not available, you can set the GUI to another look and feel.
+                    System.err.println("Не удалось установить стиль интерфейса по умолчанию: " +
+                            CalcT6.DEFAULT_LOOK_AND_FEEL.name() + " Classpath: " + CalcT6.DEFAULT_LOOK_AND_FEEL.getLAFClassPath());
+                    System.err.println();
+                    System.err.println(e.toString());
+                    e.printStackTrace();
                     JFrame.setDefaultLookAndFeelDecorated(true);
                 }
                 // Создаём нашу фому калькулятора
@@ -174,7 +253,19 @@ public class CalcT6
                 {
                     showThreadInfo();
                 }
-                new CalcT6().setActionListeners();
+                try
+                {
+                    new CalcT6().setActionListeners();
+                }
+                catch (Exception ex)
+                {
+                    String mes = MessageFormat.format("Не удалось создать главный класс программы \"{1}\"{0}{2}",
+                            System.lineSeparator(), CalcT6.class.getName(), ex.toString());
+                    System.err.println(mes);
+                    System.err.println();
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(null, mes, "Ошибка", JOptionPane.ERROR_MESSAGE);
+                }
             }
         });
     }
@@ -192,6 +283,7 @@ public class CalcT6
     public CalcT6()
     {
         final String signChangeHotkeyTooltip = "<html>Для смены знака нажмите <b><kbd>Ctrl</kbd> + (<kbd>-</kbd>)</b></html>";
+        final String iconFileResourceName = "/basic16.png";
         if (IS_DEBUG)
         {
             showThreadInfo();
@@ -200,17 +292,15 @@ public class CalcT6
         //_jf.setUndecorated(true);
         _jf.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         _jf.setContentPane(this.mainPanel);
-        //_jf.setSize(320, 480);
-        //_jf.setPreferredSize(new Dimension(320, 240));
         _jf.setResizable(false);
         try
         {
-            ImageIcon img = new ImageIcon(getClass().getResource("/basic16.png"));
+            ImageIcon img = new ImageIcon(Objects.requireNonNull(getClass().getResource(iconFileResourceName)));
             _jf.setIconImage(img.getImage());
         }
         catch (Exception ex)
         {
-            System.err.println("Не найден ресурс: " + getClass().getResource("/basic16.png"));
+            System.err.println("Не найден ресурс: " + iconFileResourceName);
         }
         
         // создаём Меню
@@ -218,11 +308,31 @@ public class CalcT6
         _miniBar = new JMenuBar();
         JMenu mainMenu = new JMenu("Ещё...");
         mainMenu.setToolTipText("Реализует задание 1.3");
-        JCheckBoxMenuItem miShowCalcState = new JCheckBoxMenuItem(infoPanelSwitcher);
+        JCheckBoxMenuItem miShowCalcState = new JCheckBoxMenuItem(showInfoPanelMenuClickHandler);
         miShowCalcState.setState(pInfo.isVisible());
         mainMenu.add(miShowCalcState);
-        JMenuItem miOpenConverter = mainMenu.add("Конвертер величин (Мили <-> Километры)");
-        miOpenConverter.setToolTipText("Калькулятор работает с двумя параметрами, вводимыми пользователем в окна ввода");
+        JMenu skinsMenu = new JMenu("Скин");
+        ButtonGroup group = new ButtonGroup();
+        for (Skin skn : Skin.values())
+        {
+            JRadioButtonMenuItem rb = new JRadioButtonMenuItem(skn.name(), skn == this.DEFAULT_LOOK_AND_FEEL);
+            rb.setToolTipText(skn.toolTip);
+            rb.addActionListener(skinChangeMenuClickHandler);
+            group.add(rb);
+            skinsMenu.add(rb);
+        }
+        mainMenu.add(skinsMenu);
+        JMenuItem miOpenConverter = mainMenu.add(new AbstractAction("Конвертер величин (Мили <-> Километры)")
+        {
+            @Override
+            public void actionPerformed(ActionEvent e)
+            {
+                JOptionPane.showMessageDialog((Component) e.getSource(), "Задание: \"Калькулятор работает с " +
+                        "двумя параметрами, вводимыми пользователем в окна ввода\" пока не реализовано, но полагаю" +
+                        "я с лихвой это компенсировал объёмом самого калькулятора");
+            }
+        });
+        mainMenu.add(aboutMenuClickHandler);
         _miniBar.add(mainMenu);
         _miniBar.setToolTipText("Пс-с-с... Меня можно таскать за это место!");
         _jf.setJMenuBar(_miniBar);
@@ -232,7 +342,7 @@ public class CalcT6
         }
         //TODO: Опасное действие - желательно не выдумывать свои форматы (могут совпасть с чем-то), а использовать из ОС.
         //  Но тогда возникает проблема с обратным преобразование, т.к. Double.parseDouble() - выбрасывает исключение на запятой!
-        //  Нужно пользоваться дополнительным классом-обёрткой NumberFormat
+        //  Нужно пользоваться дополнительным классом-обёрткой NumberFormat, что сильно удлиняет вызовы.
         _dot = btDot.getActionCommand();
         DecimalFormatSymbols dfs = _formatter.getDecimalFormatSymbols();
         dfs.setDecimalSeparator(btDot.getActionCommand().charAt(0));
@@ -240,6 +350,11 @@ public class CalcT6
         txtDisplay.setToolTipText(signChangeHotkeyTooltip);
         btMinus.setToolTipText(signChangeHotkeyTooltip);
         _defaultDisplayFont = txtDisplay.getFont();
+        // Не редактируемое поле ввода для диалога "О программе"
+        _txtAbout = new JEditorPane("text/html", ABOUT_TEXT);
+        _txtAbout.setEditable(false);
+        //TODO: похоже установка фона полей ввода не срабатывает для снина Nimbus
+        _txtAbout.setBackground(lbStatus.getBackground());
         
         _jf.setLocationByPlatform(true);
         _jf.pack();
@@ -255,7 +370,51 @@ public class CalcT6
     
     //region 'Обработчики'
     
-    private Action infoPanelSwitcher = new AbstractAction("Показывать панель состояния")
+    /**
+     * Обработчик меню "Сменить скин"
+     */
+    private ActionListener skinChangeMenuClickHandler = new ActionListener()
+    {
+        @Override
+        public void actionPerformed(ActionEvent e)
+        {
+            try
+            {
+                JRadioButtonMenuItem rb = (JRadioButtonMenuItem)e.getSource();
+                Skin skn = Skin.valueOf(rb.getText());
+                //TODO: почему-то после смены стиля теряются настройки шрифта {@link txtDisplay}
+                //Font fnt = txtDisplay.getFont();
+                UIManager.setLookAndFeel(skn.getLAFClassPath());
+                SwingUtilities.updateComponentTreeUI(_jf);
+                txtDisplay.setFont(_defaultDisplayFont);
+            }
+            catch (Exception ex)
+            {
+                String mes = MessageFormat.format("Смена скина невозможна (подробности в консоли): {0}{1}",
+                        System.lineSeparator(), ex);
+                System.err.println(mes);
+                System.err.println();
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(_jf, mes, "Ошибка", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    };
+    
+    /**
+     * Обработчик меню "О программе"
+     *
+     * @implNote    Решение взято отсюда <a href="https://stackoverflow.com/q/8348063/2323972">clickable links in JOptionPane</a>
+     * */
+    private Action aboutMenuClickHandler = new AbstractAction("О программе")
+    {
+        @Override
+        public void actionPerformed(ActionEvent e)
+        {
+            JOptionPane.showMessageDialog((Component) e.getSource(), _txtAbout, "О программе", JOptionPane.INFORMATION_MESSAGE);
+        }
+    };
+    
+    private Action showInfoPanelMenuClickHandler = new AbstractAction("Показывать панель состояния")
     {
         /**
          * Invoked when an action occurs.
@@ -395,7 +554,7 @@ public class CalcT6
      * @implNote    Если это кнопка с цифрой, то добавляем её к тексту поля ввода, иначе показываем знак операции, вместо
      *  текущего текста. В любом случае сначала запоминаем текущие показания "дисплея".
      * */
-    private ActionListener clickHandler = new ActionListener()
+    private ActionListener buttonClickHandler = new ActionListener()
     {
         @Override
         public void actionPerformed(ActionEvent e)
@@ -533,7 +692,7 @@ public class CalcT6
         
         // навешиваем обработчики на все кнопки
         Arrays.stream(mainPanel.getComponents()).filter(x -> x instanceof JButton).forEach(b ->
-                ((JButton) b).addActionListener(this.clickHandler)
+                ((JButton) b).addActionListener(this.buttonClickHandler)
         );
         /*
           Обработчик поддержки перетаскивания окна за указанный компонент (строка меню)
@@ -545,6 +704,27 @@ public class CalcT6
           */
         _miniBar.addMouseMotionListener(mouseDragHandler);
         pInfo.addMouseMotionListener(mouseDragHandler);
+        //
+        // Обработчик гиперссылок диалога "О программе"
+        //
+        _txtAbout.addHyperlinkListener(new HyperlinkListener()
+        {
+            @Override
+            public void hyperlinkUpdate(HyperlinkEvent e)
+            {
+                if (e.getEventType().equals(HyperlinkEvent.EventType.ACTIVATED))
+                {
+                    try
+                    {
+                        Desktop.getDesktop().browse(e.getURL().toURI()); // roll your own link launcher or use Desktop if J6+
+                    }
+                    catch (Exception ex)
+                    {
+                        ex.printStackTrace();
+                    }
+                }
+            }
+        });
         //
         // Обработчик обновления панели с историей вычислений
         //
