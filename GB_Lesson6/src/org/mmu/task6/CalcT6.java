@@ -9,6 +9,7 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.MessageFormat;
@@ -32,16 +33,6 @@ public class CalcT6
      *  внешний "мир" (параметры запуска в консоли/файл настоек/переменные окружения и т.п.)
      * */
     private static final boolean IS_DEBUG;
-    
-    static
-    {
-        IS_DEBUG = false;
-    }
-    
-    private void createUIComponents()
-    {
-        // TODO: place custom component creation code here
-    }
     
     /**
      * Набор возможных операций над числами
@@ -168,7 +159,6 @@ public class CalcT6
     private JButton btDot;
     private JPanel pInfo;
     private JLabel lbStatus;
-    private JPanel pDisplay;
     
     private JMenuBar _miniBar;
     private Point _mouseDownCursorPos = new Point();
@@ -193,19 +183,27 @@ public class CalcT6
     private final FontMetrics _defaultDisplayFontMetrics;
     private final String _dot;
     private final CalculatorState _calcState = new CalculatorState();
-    private static final String ABOUT_TEXT = "<html><body>" +
-            "<h2>Учебный калькулятор</h2><p>Создан Маюровым Михаилом Юрьевичем в 2022 г. в рамках выполнения задания №6 " +
-            "курса GeekBrains \"Основы Java. Интерактивный курс\"</p>" +
-            "<p>В качестве возможных тем офомления интерфейса задействован открытый проект <b>FlatLaf</b> компании <i>FormDev</i></p>" +
-            "<p>Ссылки: <a href=https://www.formdev.com/flatlaf/>FlatLaf - Flat Look and Feel</a></p>" +
-            "<p>Лицензия на FlatLaf: <a href=https://github.com/JFormDesigner/FlatLaf/blob/master/LICENSE>Apache 2.0 License</a></p>" +
-            "</body></html>";
+    private static final String ABOUT_TEXT;
     private static final String SIGN_CHANGE_HOTKEY_TOOLTIP = "<html>Для смены знака нажмите <b><kbd>Ctrl</kbd> + (<kbd>-</kbd>)</b></html>";
     private static final String ICON_FILE_RESOURCE_NAME = "/basic16.png";
     private static final int MIN_TEXT_HEIGHT = 16;
     
     //endregion 'Поля и константы'
     
+    
+    
+    static
+    {
+        IS_DEBUG = false;
+        Package pkg = CalcT6.class.getPackage();
+        ABOUT_TEXT = MessageFormat.format("<html><body>" +
+                "<h1>{0}</h1><h2>Версия: {1}</h2><h3>Автор: {2}</h3><p>Создан в 2022 г. в рамках выполнения задания №6 " +
+                "курса GeekBrains \"Основы Java. Интерактивный курс\"</p>" +
+                "<p>В качестве возможных тем оформления интерфейса задействован открытый проект <b>FlatLaf</b> компании <i>FormDev</i></p>" +
+                "<p>Ссылки: <a href=https://www.formdev.com/flatlaf/>FlatLaf - Flat Look and Feel</a></p>" +
+                "<p>Лицензия на FlatLaf: <a href=https://github.com/JFormDesigner/FlatLaf/blob/master/LICENSE>Apache 2.0 License</a></p>" +
+                "</body></html>", pkg.getSpecificationTitle(), pkg.getSpecificationVersion(), pkg.getSpecificationVendor());
+    }
     
     
     /**
@@ -228,7 +226,7 @@ public class CalcT6
             showThreadInfo();
         }
         _formatter.setDecimalSeparatorAlwaysShown(false);
-        //_formatter.setRoundingMode(Ro);
+        _formatter.setRoundingMode(RoundingMode.HALF_UP);
         _formatter.setMaximumFractionDigits(100);
         SwingUtilities.invokeLater(new Runnable()
         {
@@ -370,7 +368,6 @@ public class CalcT6
         
         _jf.setLocationByPlatform(true);
         _jf.pack();
-        pDisplay.setLayout(null);
         _jf.setVisible(true);
         
         if (IS_DEBUG)
@@ -429,7 +426,7 @@ public class CalcT6
         @Override
         public void actionPerformed(ActionEvent e)
         {
-            JOptionPane.showMessageDialog((Component) e.getSource(), _txtAbout, "О программе", JOptionPane.INFORMATION_MESSAGE);
+           JOptionPane.showMessageDialog((Component) e.getSource(), _txtAbout,"О программе", JOptionPane.INFORMATION_MESSAGE);
         }
     };
     
@@ -586,22 +583,31 @@ public class CalcT6
                 {
                     return;
                 }
+                double operandA = CalculatorState.getOperandA(), operandB = CalculatorState.getOperandB();
+                Operation op = CalculatorState.getCurOperation();
                 // реализуем механизм повтора последней операции при повторном нажатии (=)
-                if (CalculatorState.getCurOperation() == Operation.Equality)
+                if (op == Operation.Equality)
                 {
+                    operandA = CalculatorState.getResult();
                     CalculatorState.setCurOperation(CalculatorState.getLastOperation());
-                    CalculatorState.setResult(calculate(true));
+                    op = CalculatorState.getCurOperation();
                 }
                 else
                 {
-                    if (Double.isNaN(CalculatorState.getOperandB()))
+                    try
                     {
-//                        //CalculatorState.setOperandB(CalculatorState.getOperandA());
-                        setDisplayText(_formatter.format(CalculatorState.getOperandA()));
+                        operandB = _formatter.parse(txtDisplay.getText()).doubleValue();
                     }
-                    CalculatorState.setResult(calculate());
+                    catch (Exception ex)
+                    {
+                        // если (=) нажали сразу после ввода знака операции, то её нужно применить к первому операнду
+                        operandB = operandA;
+                    }
                 }
-                CalculatorState.setLastOperation(CalculatorState.getCurOperation());
+                CalculatorState.setOperandA(operandA);
+                CalculatorState.setOperandB(operandB);
+                CalculatorState.setResult(calculate(operandA, operandB, op));
+                CalculatorState.setLastOperation(op);
                 CalculatorState.setCurOperation(Operation.Equality);
                 setDisplayText(_formatter.format(CalculatorState.getResult()));
             }
@@ -758,10 +764,11 @@ public class CalcT6
         //
         CalculatorState.addStateChangeListener(e -> {
             Double num = CalculatorState.getOperandA();
-            String a = Double.isNaN(num) ? "" : _formatter.format(num).trim();
+            String a = Double.isNaN(num) ? "" : String.format(Locale.ROOT,"%.3g", num); //_formatter.format(num).trim();
             num = CalculatorState.getOperandB();
-            String b = Double.isNaN(num) ? "" : _formatter.format(num).trim();
-            String r = _formatter.format(CalculatorState.getResult()).trim();
+            String b = Double.isNaN(num) ? "" : String.format(Locale.ROOT,"%.3g", num); //_formatter.format(num).trim();
+            num = CalculatorState.getResult();
+            String r = String.format(Locale.ROOT,"%.3g", num); //_formatter.format(CalculatorState.getResult()).trim();
             Operation op = CalculatorState.getCurOperation();
             Operation lastOp = CalculatorState.getLastOperation();
             
@@ -773,7 +780,7 @@ public class CalcT6
                 }
                 else if (op == Operation.None)
                 {
-                    lbStatus.setText(" ");      // ставим пробел, т.к. при пустой строке панель пропадает с экрана?!
+                    lbStatus.setText(Character.toString(op.title));      // ставим пробел, т.к. при пустой строке панель пропадает с экрана?!
                 }
                 else
                 {
@@ -785,36 +792,6 @@ public class CalcT6
                 lbStatus.setText(a + " " + op.title + " " + b);
             }
         });
-        
-//        //
-//        // Обработчик изменения текста в компоненте Дисплея - подгоняет размер шрифта под отображаемый текст
-//        //
-//        txtDisplay.getDocument().addDocumentListener(new DocumentListener()
-//        {
-//            private void handleTextUpdate()
-//            {
-//                Font testFont = getOptimizedFont();
-//            }
-//
-//            @Override
-//            public void insertUpdate(DocumentEvent e)
-//            {
-//                handleTextUpdate();
-//            }
-//
-//            @Override
-//            public void removeUpdate(DocumentEvent e)
-//            {
-//                handleTextUpdate();
-//            }
-//
-//            @Override
-//            public void changedUpdate(DocumentEvent e)
-//            {
-//                //это к изменениям текста не относится - тут речь только об изменении каких-то стилей (см.:
-//                //  <a href=https://docs.oracle.com/javase/tutorial/uiswing/events/documentlistener.html></a>)
-//            }
-//        });
     }
     
     /**
@@ -888,25 +865,16 @@ public class CalcT6
     }
 
     
-    private double calculate()
-    {
-        return calculate(false);
-    }
     /**
      * Метод расчёта для калькулятора
      *
-     * @isRepeatLast    True - повторить предыдущую операцию с сохранённым Операндом_2
-     *
      * */
-    private double calculate(boolean isRepeatLast)
+    private double calculate(double operandA, double operandB, Operation mathOperation)
     {
         double result = 0;
-        double operandA = isRepeatLast ? CalculatorState.getResult() : CalculatorState.getOperandA();
-        double operandB = Double.NaN;    //Double.parseDouble(txtDisplay.getText().trim());
         try
         {
-            operandB = isRepeatLast ? CalculatorState.getOperandB() : _formatter.parse(txtDisplay.getText()).doubleValue();
-            switch (CalculatorState.getCurOperation())
+            switch (mathOperation)
             {
                 case Add:
                 {
@@ -951,10 +919,6 @@ public class CalcT6
                             "Ошибка", JOptionPane.ERROR_MESSAGE);
                 }
             }
-            //
-            CalculatorState.setOperandA(operandA);
-            //
-            CalculatorState.setOperandB(operandB);
         }
         catch (NumberFormatException nex)
         {

@@ -333,7 +333,7 @@
       </component>
       <grid id="ac03" binding="pInfo" layout-manager="BorderLayout" hgap="0" vgap="0">
         <constraints>
-          <grid row="0" column="0" row-span="1" col-span="4" vsize-policy="3" hsize-policy="3" anchor="1" fill="1" indent="0" use-parent-layout="false"/>
+          <grid row="0" column="0" row-span="1" col-span="4" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
           <gridbag weightx="0.0" weighty="0.0"/>
         </constraints>
         <properties/>
@@ -350,30 +350,23 @@
           </component>
         </children>
       </grid>
-      <grid id="98255" binding="pDisplay" layout-manager="BorderLayout" hgap="0" vgap="0">
+      <component id="6ddf8" class="javax.swing.JTextField" binding="txtDisplay">
         <constraints>
           <grid row="1" column="0" row-span="1" col-span="4" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
           <gridbag weightx="0.0" weighty="0.1"/>
         </constraints>
-        <properties/>
-        <border type="none"/>
-        <children>
-          <component id="6ddf8" class="javax.swing.JTextField" binding="txtDisplay">
-            <constraints border-constraint="Center"/>
-            <properties>
-              <columns value="0"/>
-              <editable value="false"/>
-              <focusable value="true"/>
-              <font name="JetBrains Mono" size="36"/>
-              <horizontalAlignment value="4"/>
-              <margin top="2" left="6" bottom="2" right="6"/>
-              <selectionColor color="-13394945"/>
-              <text value="0"/>
-              <toolTipText value=""/>
-            </properties>
-          </component>
-        </children>
-      </grid>
+        <properties>
+          <columns value="0"/>
+          <editable value="false"/>
+          <focusable value="true"/>
+          <font name="JetBrains Mono" size="36"/>
+          <horizontalAlignment value="4"/>
+          <margin top="2" left="6" bottom="2" right="6"/>
+          <selectionColor color="-13394945"/>
+          <text value="0"/>
+          <toolTipText value=""/>
+        </properties>
+      </component>
     </children>
   </grid>
 </form>
