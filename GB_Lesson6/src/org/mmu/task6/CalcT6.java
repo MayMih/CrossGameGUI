@@ -1,21 +1,16 @@
 package org.mmu.task6;
 
 import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
-import javax.swing.text.AttributeSet;
-import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.MessageFormat;
-import java.text.ParseException;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 
 /**
  * 1. Разработать оконное приложение «Калькулятор»;
@@ -227,7 +222,7 @@ public class CalcT6
         }
         _formatter.setDecimalSeparatorAlwaysShown(false);
         _formatter.setRoundingMode(RoundingMode.HALF_UP);
-        _formatter.setMaximumFractionDigits(100);
+        _formatter.setMaximumFractionDigits(Integer.MAX_VALUE);
         SwingUtilities.invokeLater(new Runnable()
         {
             @Override
@@ -780,7 +775,7 @@ public class CalcT6
                 }
                 else if (op == Operation.None)
                 {
-                    lbStatus.setText(Character.toString(op.title));      // ставим пробел, т.к. при пустой строке панель пропадает с экрана?!
+                    lbStatus.setText(Character.toString(op.title));
                 }
                 else
                 {

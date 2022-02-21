@@ -2,7 +2,6 @@ package org.mmu.task6;
 
 import java.util.ArrayList;
 import java.util.EventListener;
-import java.util.EventObject;
 
 /**
  * Статический класс хранящий состояние Калькулятора
