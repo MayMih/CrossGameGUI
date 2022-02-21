@@ -5,11 +5,14 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.MessageFormat;
+import java.text.ParseException;
 import java.util.*;
 import java.util.List;
 
@@ -35,12 +38,17 @@ public class CalcT6
         IS_DEBUG = false;
     }
     
+    private void createUIComponents()
+    {
+        // TODO: place custom component creation code here
+    }
+    
     /**
      * Набор возможных операций над числами
      * */
     enum Operation
     {
-        None(' '),
+        None('\u0000'),  // Возможный вариант " "
         /**
          * Специальная операция, которая позволяет отличить начальное состояние калькулятора от ситуации после Равенства
          * */
@@ -160,6 +168,7 @@ public class CalcT6
     private JButton btDot;
     private JPanel pInfo;
     private JLabel lbStatus;
+    private JPanel pDisplay;
     
     private JMenuBar _miniBar;
     private Point _mouseDownCursorPos = new Point();
@@ -181,6 +190,7 @@ public class CalcT6
     private static final Skin DEFAULT_LOOK_AND_FEEL = Skin.Nimbus;
     private static final DecimalFormat _formatter = new DecimalFormat();
     private final Font _defaultDisplayFont;
+    private final FontMetrics _defaultDisplayFontMetrics;
     private final String _dot;
     private final CalculatorState _calcState = new CalculatorState();
     private static final String ABOUT_TEXT = "<html><body>" +
@@ -192,6 +202,7 @@ public class CalcT6
             "</body></html>";
     private static final String SIGN_CHANGE_HOTKEY_TOOLTIP = "<html>Для смены знака нажмите <b><kbd>Ctrl</kbd> + (<kbd>-</kbd>)</b></html>";
     private static final String ICON_FILE_RESOURCE_NAME = "/basic16.png";
+    private static final int MIN_TEXT_HEIGHT = 16;
     
     //endregion 'Поля и константы'
     
@@ -349,6 +360,7 @@ public class CalcT6
         txtDisplay.setToolTipText(SIGN_CHANGE_HOTKEY_TOOLTIP);
         btMinus.setToolTipText(SIGN_CHANGE_HOTKEY_TOOLTIP);
         _defaultDisplayFont = txtDisplay.getFont();
+        _defaultDisplayFontMetrics = txtDisplay.getFontMetrics(_defaultDisplayFont);
         // Не редактируемое поле ввода для диалога "О программе"
         _txtAbout = new JEditorPane("text/html", ABOUT_TEXT);
         _txtAbout.setEditable(false);
@@ -358,6 +370,7 @@ public class CalcT6
         
         _jf.setLocationByPlatform(true);
         _jf.pack();
+        pDisplay.setLayout(null);
         _jf.setVisible(true);
         
         if (IS_DEBUG)
@@ -526,7 +539,7 @@ public class CalcT6
                     try
                     {
                         double number = -Double.parseDouble(txtDisplay.getText().trim());
-                        txtDisplay.setText(_formatter.format(number));
+                        setDisplayText(_formatter.format(number));
                     }
                     catch (Exception ex)
                     {
@@ -569,6 +582,10 @@ public class CalcT6
             // Кнопка "Равно (=)" - вычислить результат и показать на дисплее
             if (firedComp == btCalculate)
             {
+                if (CalculatorState.getCurOperation() == Operation.None)
+                {
+                    return;
+                }
                 // реализуем механизм повтора последней операции при повторном нажатии (=)
                 if (CalculatorState.getCurOperation() == Operation.Equality)
                 {
@@ -577,11 +594,16 @@ public class CalcT6
                 }
                 else
                 {
+                    if (Double.isNaN(CalculatorState.getOperandB()))
+                    {
+//                        //CalculatorState.setOperandB(CalculatorState.getOperandA());
+                        setDisplayText(_formatter.format(CalculatorState.getOperandA()));
+                    }
                     CalculatorState.setResult(calculate());
                 }
                 CalculatorState.setLastOperation(CalculatorState.getCurOperation());
                 CalculatorState.setCurOperation(Operation.Equality);
-                txtDisplay.setText(_formatter.format(CalculatorState.getResult()));
+                setDisplayText(_formatter.format(CalculatorState.getResult()));
             }
             else if (firedComp == btBackspace)
             {
@@ -591,17 +613,17 @@ public class CalcT6
                     Double.parseDouble(curText);
                     if (curText.length() == 1)
                     {
-                        txtDisplay.setText("0");
+                        setDisplayText("0");
                     }
                     else
                     {
-                        txtDisplay.setText(curText.substring(0, curText.length() - 1));
+                        setDisplayText(curText.substring(0, curText.length() - 1));
                     }
                 }
                 catch (Exception ex)
                 {
                     // на дисплее не число - значит это операция - отменяем её
-                    txtDisplay.setText(_formatter.format(CalculatorState.getOperandA()));
+                    setDisplayText(_formatter.format(CalculatorState.getOperandA()));
                     CalculatorState.setCurOperation(Operation.None);
                 }
                 if (IS_DEBUG)
@@ -612,7 +634,7 @@ public class CalcT6
             else if (firedComp == btClearAll)
             {
                 CalculatorState.clearState();
-                txtDisplay.setText("0");
+                setDisplayText("0");
             }
             else if (firedComp == btClearDisplay)
             {
@@ -621,7 +643,7 @@ public class CalcT6
                 {
                     CalculatorState.setResult(CalculatorState.getOperandA());
                 }
-                txtDisplay.setText("0");
+                setDisplayText("0");
             }
             else if (firedComp == btDot && txtDisplay.getText().contains(btDot.getActionCommand()))
             {
@@ -640,7 +662,7 @@ public class CalcT6
                 {
                     // обработка не требуется - видимо польз-ль повторно нажал клавишу с операцией
                 }
-                txtDisplay.setText(((JButton)firedComp).getActionCommand());
+                setDisplayText(((JButton)firedComp).getActionCommand());
             }
             // нажата кнопка с цифрой или точка
             else
@@ -673,7 +695,7 @@ public class CalcT6
                         CalculatorState.setCurOperation(Operation.None);
                     }
                 }
-                txtDisplay.setText(res);
+                setDisplayText(res);
             }
         }
     };
@@ -764,56 +786,107 @@ public class CalcT6
             }
         });
         
-        //
-        // Обработчик изменения текста в компоненте Дисплея - подгоняет размер шрифта под отображаемый текст
-        //
-        txtDisplay.getDocument().addDocumentListener(new DocumentListener()
-        {
-            private void handleTextUpdate()
-            {
-                Font testFont = _defaultDisplayFont;
-                int strWidth = 0;
-                String txt = txtDisplay.getText();
-                FontMetrics fmetr = txtDisplay.getFontMetrics(testFont);
-                do
-                {
-                    strWidth = SwingUtilities.computeStringWidth(fmetr, txt);
-                    if (strWidth < (txtDisplay.getWidth() - txtDisplay.getInsets().left - txtDisplay.getInsets().right))
-                    {
-                        break;
-                    }
-                    testFont = testFont.deriveFont(testFont.getSize() - 1f);
-                    fmetr = txtDisplay.getFontMetrics(testFont);
-                }
-                while (fmetr.getHeight() > 15);
-                
-                if (testFont != txtDisplay.getFont())
-                {
-                    txtDisplay.setFont(testFont);
-                    System.gc();
-                }
-            }
-        
-            @Override
-            public void insertUpdate(DocumentEvent e)
-            {
-                handleTextUpdate();
-            }
-        
-            @Override
-            public void removeUpdate(DocumentEvent e)
-            {
-                handleTextUpdate();
-            }
-        
-            @Override
-            public void changedUpdate(DocumentEvent e)
-            {
-                //это к изменениям текста не относится - тут речь только об изменении каких-то стилей (см.:
-                //  <a href=https://docs.oracle.com/javase/tutorial/uiswing/events/documentlistener.html></a>)
-            }
-        });
+//        //
+//        // Обработчик изменения текста в компоненте Дисплея - подгоняет размер шрифта под отображаемый текст
+//        //
+//        txtDisplay.getDocument().addDocumentListener(new DocumentListener()
+//        {
+//            private void handleTextUpdate()
+//            {
+//                Font testFont = getOptimizedFont();
+//            }
+//
+//            @Override
+//            public void insertUpdate(DocumentEvent e)
+//            {
+//                handleTextUpdate();
+//            }
+//
+//            @Override
+//            public void removeUpdate(DocumentEvent e)
+//            {
+//                handleTextUpdate();
+//            }
+//
+//            @Override
+//            public void changedUpdate(DocumentEvent e)
+//            {
+//                //это к изменениям текста не относится - тут речь только об изменении каких-то стилей (см.:
+//                //  <a href=https://docs.oracle.com/javase/tutorial/uiswing/events/documentlistener.html></a>)
+//            }
+//        });
     }
+    
+    /**
+     * Установка текста отображаемого на дисплее должна происходить только через этот метод (чтобы подогнать отображаемое
+     *  число под размер дисплея)
+     *
+     * @param isScientificFormatAllowed    True - Разрешить преобразование числа в научный формат, если оно не помещается.
+     * */
+    private void setDisplayText(String txt, boolean isScientificFormatAllowed)
+    {
+        Font fnt = getOptimizedFont(txt);
+        if (fnt != null)
+        {
+            if (fnt != txtDisplay.getFont())
+            {
+                txtDisplay.setFont(fnt);
+                System.gc();
+            }
+            txtDisplay.setText(txt);
+        }
+        else if (isScientificFormatAllowed)
+        {
+            try
+            {
+                //txtDisplay.setText(String.format(Locale.ROOT, "%g", _formatter.parse(txt)));
+                setDisplayText(String.format(Locale.ROOT, "%g", _formatter.parse(txt)), false);
+            }
+            catch (Exception ex)
+            {
+                ex.printStackTrace();
+                txtDisplay.setText(txt);
+            }
+        }
+        else
+        {
+            txtDisplay.setText(txt);
+        }
+    }
+    
+    private void setDisplayText(String txt)
+    {
+        setDisplayText(txt, true);
+    }
+    
+    /**
+     * Возвращает шрифт такого размера, что позволит полностью уместить число на дисплее
+     *
+     * @return  Подходящий шрифт или Null, если расчётная высота шрифта меньше {@link CalcT6#MIN_TEXT_HEIGHT}
+     * */
+    public Font getOptimizedFont(String text)
+    {
+        Font testFont = _defaultDisplayFont;
+        int strWidth = 0;
+        FontMetrics fmetr = _defaultDisplayFontMetrics;
+        do
+        {
+            strWidth = SwingUtilities.computeStringWidth(fmetr, text);
+            if (strWidth < (txtDisplay.getWidth() - txtDisplay.getInsets().left - txtDisplay.getInsets().right))
+            {
+                break;
+            }
+            testFont = testFont.deriveFont(testFont.getSize() - 1f);
+            fmetr = txtDisplay.getFontMetrics(testFont);
+        }
+        while (fmetr.getHeight() > MIN_TEXT_HEIGHT);
+        if (fmetr.getHeight() <= MIN_TEXT_HEIGHT)
+        {
+            testFont = null;
+        }
+        return testFont;
+    }
+
     
     private double calculate()
     {
@@ -829,9 +902,10 @@ public class CalcT6
     {
         double result = 0;
         double operandA = isRepeatLast ? CalculatorState.getResult() : CalculatorState.getOperandA();
-        double operandB = isRepeatLast ? CalculatorState.getOperandB() : Double.parseDouble(txtDisplay.getText().trim());
+        double operandB = Double.NaN;    //Double.parseDouble(txtDisplay.getText().trim());
         try
         {
+            operandB = isRepeatLast ? CalculatorState.getOperandB() : _formatter.parse(txtDisplay.getText()).doubleValue();
             switch (CalculatorState.getCurOperation())
             {
                 case Add:

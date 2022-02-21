@@ -2,7 +2,7 @@
 <form xmlns="http://www.intellij.com/uidesigner/form/" version="1" bind-to-class="org.mmu.task6.CalcT6">
   <grid id="27dc6" binding="mainPanel" layout-manager="GridBagLayout">
     <constraints>
-      <xy x="20" y="20" width="202" height="415"/>
+      <xy x="20" y="20" width="202" height="334"/>
     </constraints>
     <properties>
       <alignmentX value="0.5"/>
@@ -12,26 +12,6 @@
     </properties>
     <border type="none"/>
     <children>
-      <component id="6ddf8" class="javax.swing.JTextField" binding="txtDisplay">
-        <constraints>
-          <grid row="1" column="0" row-span="1" col-span="4" vsize-policy="0" hsize-policy="6" anchor="0" fill="3" indent="0" use-parent-layout="false">
-            <minimum-size width="30" height="-1"/>
-            <preferred-size width="150" height="-1"/>
-          </grid>
-          <gridbag weightx="1.0" weighty="0.1" ipady="10"/>
-        </constraints>
-        <properties>
-          <columns value="0"/>
-          <editable value="false"/>
-          <focusable value="true"/>
-          <font name="JetBrains Mono" size="36"/>
-          <horizontalAlignment value="4"/>
-          <margin top="2" left="6" bottom="2" right="6"/>
-          <selectionColor color="-13394945"/>
-          <text value="0"/>
-          <toolTipText value=""/>
-        </properties>
-      </component>
       <component id="e15de" class="javax.swing.JButton" binding="btClearDisplay">
         <constraints>
           <grid row="2" column="0" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="0" indent="0" use-parent-layout="false"/>
@@ -244,7 +224,7 @@
       </component>
       <component id="58320" class="javax.swing.JButton" binding="btDot">
         <constraints>
-          <grid row="6" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="0" indent="0" use-parent-layout="false"/>
+          <grid row="6" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
           <gridbag weightx="0.0" weighty="0.0"/>
         </constraints>
         <properties>
@@ -353,7 +333,7 @@
       </component>
       <grid id="ac03" binding="pInfo" layout-manager="BorderLayout" hgap="0" vgap="0">
         <constraints>
-          <grid row="0" column="0" row-span="1" col-span="4" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+          <grid row="0" column="0" row-span="1" col-span="4" vsize-policy="3" hsize-policy="3" anchor="1" fill="1" indent="0" use-parent-layout="false"/>
           <gridbag weightx="0.0" weighty="0.0"/>
         </constraints>
         <properties/>
@@ -366,6 +346,30 @@
             <properties>
               <horizontalAlignment value="4"/>
               <text value="Панель статуса"/>
+            </properties>
+          </component>
+        </children>
+      </grid>
+      <grid id="98255" binding="pDisplay" layout-manager="BorderLayout" hgap="0" vgap="0">
+        <constraints>
+          <grid row="1" column="0" row-span="1" col-span="4" vsize-policy="3" hsize-policy="3" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+          <gridbag weightx="0.0" weighty="0.1"/>
+        </constraints>
+        <properties/>
+        <border type="none"/>
+        <children>
+          <component id="6ddf8" class="javax.swing.JTextField" binding="txtDisplay">
+            <constraints border-constraint="Center"/>
+            <properties>
+              <columns value="0"/>
+              <editable value="false"/>
+              <focusable value="true"/>
+              <font name="JetBrains Mono" size="36"/>
+              <horizontalAlignment value="4"/>
+              <margin top="2" left="6" bottom="2" right="6"/>
+              <selectionColor color="-13394945"/>
+              <text value="0"/>
+              <toolTipText value=""/>
             </properties>
           </component>
         </children>
