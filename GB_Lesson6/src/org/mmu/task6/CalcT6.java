@@ -176,6 +176,7 @@ public class CalcT6
     private static final DecimalFormat _formatter = new DecimalFormat();
     private final Font _defaultDisplayFont;
     private final FontMetrics _defaultDisplayFontMetrics;
+    private final HashMap<Object, Object> _buttonFonts;
     private final String _dot;
     private final CalculatorState _calcState = new CalculatorState();
     private static final String ABOUT_TEXT;
@@ -354,6 +355,10 @@ public class CalcT6
         btMinus.setToolTipText(SIGN_CHANGE_HOTKEY_TOOLTIP);
         _defaultDisplayFont = txtDisplay.getFont();
         _defaultDisplayFontMetrics = txtDisplay.getFontMetrics(_defaultDisplayFont);
+        //HACK: не считаем кол-во кнопок, зная, что единственный компонент НЕкнопка в {@link mainPanel} - это {@link txtDisplay}
+        _buttonFonts = new HashMap<>(mainPanel.getComponentCount() - 1);
+        // запоминаем шрифты всех кнопок, т.к. они почему-то сбиваются после смены интерфейса
+        Arrays.stream(mainPanel.getComponents()).filter(x -> x instanceof JButton).forEach(bt -> _buttonFonts.put(bt, bt.getFont()));
         // Не редактируемое поле ввода для диалога "О программе"
         _txtAbout = new JEditorPane("text/html", ABOUT_TEXT);
         _txtAbout.setEditable(false);
@@ -384,8 +389,6 @@ public class CalcT6
          * Invoked when an item has been selected or deselected by the user.
          * The code written for this method performs the operations
          * that need to occur when an item is selected (or deselected).
-         *
-         * @param e
          */
         @Override
         public void itemStateChanged(ItemEvent e)
@@ -394,10 +397,12 @@ public class CalcT6
             {
                 JMenuItem rb = (JMenuItem)e.getItemSelectable();
                 Skin skn = Skin.valueOf(rb.getText());
-                //TODO: почему-то после смены стиля теряются настройки шрифта {@link txtDisplay}
+                //TODO: почему-то после смены стиля теряются настройки шрифтов {@link txtDisplay} и всех кнопок?!
                 UIManager.setLookAndFeel(skn.getLAFClassPath());
                 SwingUtilities.updateComponentTreeUI(_jf);
                 txtDisplay.setFont(_defaultDisplayFont);
+                Arrays.stream(mainPanel.getComponents()).filter(x -> x instanceof JButton).forEach(bt ->
+                        bt.setFont((Font)_buttonFonts.get(bt)));
             }
             catch (Exception ex)
             {
