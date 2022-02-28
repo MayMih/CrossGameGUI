@@ -380,7 +380,7 @@ public class CalcT6
     
     //region 'Обработчики'
     
-    /**
+/**
      * Обработчик меню "Сменить скин"
      */
     private ItemListener skinChangeMenuClickHandler = new ItemListener()
