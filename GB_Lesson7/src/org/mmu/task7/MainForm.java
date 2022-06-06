@@ -58,6 +58,7 @@ public class MainForm
                 "com.formdev.flatlaf.FlatDarculaLaf");
         
         private String lafClassPath;
+        
         private final String toolTip;
         
         Skin() { this(""); };
@@ -124,7 +125,7 @@ public class MainForm
     {
         IS_DEBUG = false;
         _pkg = MainForm.class.getPackage();
-        ABOUT_TEXT = MessageFormat.format("<html><body>" +
+        ABOUT_TEXT = MessageFormat.format("<html><body style='background: transparent'>" +
                 "<h1>{0}</h1><h2>Версия: {1}</h2><h3>Автор: {2}</h3><p>Создана в 2022 г. в рамках выполнения задания №7 " +
                 "курса GeekBrains \"Основы Java. Интерактивный курс\"</p>" +
                 "<p>В качестве возможных тем оформления интерфейса задействован открытый проект <b>FlatLaf</b> компании <i>FormDev</i></p>" +
@@ -241,13 +242,21 @@ public class MainForm
                 int bSize = GameState.Current.getBoardSize();
                 return GameState.Current.getSymbolAt(cellNumber / bSize, cellNumber % bSize);
             }
+    
+            @Override
+            public boolean isCellEditable(int rowIndex, int columnIndex)
+            {
+                return false;
+            }
         };
         tableGameBoard.setModel(dataModel);
-        tableGameBoard.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+        tableGameBoard.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
         tableGameBoard.setAutoCreateColumnsFromModel(true);
         tableGameBoard.setCellSelectionEnabled(false);
         tableGameBoard.setColumnSelectionAllowed(false);
         tableGameBoard.setRowSelectionAllowed(false);
+        //tableGameBoard.setFillsViewportHeight(true);
+        tableGameBoard.setShowGrid(true);
         createMainMenuFor(_mainFrame);
         lbAICaption.setMinimumSize(lbPlayerCaption.getSize());
         _mainFrame.pack();
@@ -263,8 +272,21 @@ public class MainForm
     private void createMainMenuFor(JFrame jf)
     {
         JMenuBar miniBar = new JMenuBar();
-        JMenuItem miNewGame = new JMenuItem(startNewGameAction);
-        miniBar.add(miNewGame);
+        JMenu mGame = new JMenu("Игра");
+        mGame.add(actStartNewGame);
+        mGame.add(new AbstractAction("Выход")
+        {
+            @Override
+            public void actionPerformed(ActionEvent e)
+            {
+                if (JOptionPane.showConfirmDialog(_mainFrame, "Вы уверены, что хотите выйти?","Выход из игры",
+                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION)
+                {
+                    System.exit(0);
+                }
+            }
+        });
+        miniBar.add(mGame);
         JMenu mOptions = new JMenu("Опции");
         miniBar.add(mOptions);
         JMenu mSkins = new JMenu("Скин");
@@ -355,7 +377,7 @@ public class MainForm
     
     //region 'Обработчики'
     
-    private final Action startNewGameAction = new AbstractAction("Новая игра")
+    private final Action actStartNewGame = new AbstractAction("Новая игра")
     {
         @Override
         public void actionPerformed(ActionEvent e)
@@ -466,9 +488,9 @@ public class MainForm
             {
                 JMenuItem rb = (JMenuItem)e.getItemSelectable();
                 Skin skn = Skin.valueOf(rb.getText());
-                //TODO: почему-то после смены стиля сбивается ширина пунктов меню - нужен принудительный autosize
                 UIManager.setLookAndFeel(skn.getLAFClassPath());
                 SwingUtilities.updateComponentTreeUI(_mainFrame);
+                tableGameBoard.setShowGrid(true);
             }
             catch (Exception ex)
             {

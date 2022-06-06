@@ -192,7 +192,7 @@ public class CalcT6
     {
         IS_DEBUG = false;
         Package pkg = CalcT6.class.getPackage();
-        ABOUT_TEXT = MessageFormat.format("<html><body>" +
+        ABOUT_TEXT = MessageFormat.format("<html><body style='background: transparent'>" +
                 "<h1>{0}</h1><h2>Версия: {1}</h2><h3>Автор: {2}</h3><p>Создан в 2022 г. в рамках выполнения задания №6 " +
                 "курса GeekBrains \"Основы Java. Интерактивный курс\"</p>" +
                 "<p>В качестве возможных тем оформления интерфейса задействован открытый проект <b>FlatLaf</b> компании <i>FormDev</i></p>" +

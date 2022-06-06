@@ -20,7 +20,10 @@
             <properties>
               <autoResizeMode value="4"/>
               <fillsViewportHeight value="false"/>
-              <gridColor color="-8684677"/>
+              <gridColor color="-7829368"/>
+              <showHorizontalLines value="true"/>
+              <showVerticalLines value="true"/>
+              <updateSelectionOnSort value="false"/>
             </properties>
           </component>
         </children>
