@@ -33,6 +33,7 @@ public class CalculatorState
     
     /**
      * Возвращает 1-ый операнд - он же аккумулятор результата
+     * @return lhlklk <b></b>
      * */
     public static double getOperandA()
     {
@@ -73,7 +74,7 @@ public class CalculatorState
     }
     
     /**
-     * Возвращает текущую мат. операцию, выбраную польз-м
+     * Возвращает текущую мат. операцию, выбранную польз-м
      * */
     public static CalcT6.Operation getCurOperation()
     {

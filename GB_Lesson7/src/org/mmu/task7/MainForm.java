@@ -1,56 +1,25 @@
 package org.mmu.task7;
 
+import org.mmu.task7.events.AILevelChangedEvent;
+import org.mmu.task7.events.BoardSizeChangedEvent;
+
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
+import javax.swing.table.AbstractTableModel;
+import javax.swing.table.TableModel;
 import java.awt.*;
 import java.awt.event.*;
 import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.Objects;
 import java.util.Random;
 
-public class GameForm
+
+public class MainForm
 {
     
-    /**
-     * Возможные уровни Искусственного интеллекта противника
-     */
-    private enum AILevel
-    {
-        /**
-         * Неизвестный уровень - значение по умолчанию для пустых полей этого типа
-         */
-        Unknown("Не задан - пропускает ходы (для отладки)"),
-        /*
-         * Тупой - Ходит случайным образом
-         * */
-        Stupid("Тупой - Ходит случайным образом"),
-        /**
-         * Низкий - ходит по клеткам соседним со своими
-         */
-        Low("Низкий - ходит по клеткам соседним со своими");
-        /**
-         * Ниже Среднего - ходит по клеткам соседним со своими и проверяет, не будет ли следующий ход игрока выигрышным
-         * (если да, то пытается препятствовать выигрышу вместо своего хода - не реализовано)
-         */
-        //BelowNormal,  // ещё не реализовано
-        /**
-         * *Алгоритм с подсчётом очков для каждой клетки (определение выгодности хода)
-         */
-        //Normal        // ещё не реализовано
-        
-        /**
-         * Конструктор перечисления - позволяет задать описания для элементов перечисления
-         * */
-        private AILevel(String _description)
-        {
-            description = _description;
-        }
-        
-        public final String description;
-    }
-
     /**
      * Перечисление возможных стилей интерфейса
      * */
@@ -79,7 +48,7 @@ public class GameForm
          * Сторонний бесплатный стиль - тёмная тема - (минимум Java 8)
          * @see <a href=https://www.formdev.com/flatlaf/themes/>FlatLaf - Flat Look and Feel</>
          * */
-        FlatIdea("Сторонний бесплатный стиль - свелая тема в духе ItelliJ Idea 2019.2+ - (минимум Java 8)",
+        FlatIdea("Сторонний бесплатный стиль - светлая тема в духе ItelliJ Idea 2019.2+ - (минимум Java 8)",
                 "com.formdev.flatlaf.FlatIntelliJLaf"),
         /**
          * Сторонний бесплатный стиль - тёмная тема - (минимум Java 8)
@@ -118,10 +87,16 @@ public class GameForm
     
     //region 'Поля и константы'
     
-    private JTable tableGameField;
+    private JTable tableGameBoard;
     private JPanel pMain;
+    private JLabel lbPlayerSymbol;
+    private JLabel lbAISymbol;
+    private JLabel lbAICaption;
+    private JLabel lbPlayerCaption;
     
     private JFrame _mainFrame = new JFrame();
+    private JMenuItem _miChangeBoardSize;
+    private ButtonGroup _bgAI;
     
     /**
      *  Определяет, будет ли выводиться в консоль дополнительная отладочная информация (например о перехвате клавиш)
@@ -133,15 +108,11 @@ public class GameForm
     private static final String ABOUT_TEXT;
     private static final String ICON_FILE_RESOURCE_NAME = "/icons/interface57.png";
     private static final Skin DEFAULT_LOOK_AND_FEEL = Skin.FlatIdea;
-    private static final AILevel DEFAULT_AI_LEVEL = AILevel.Low;
-    private static final int DEFAULT_BOARD_SIZE = 3;
     private static final String BOARD_SIZE_CAPTION_START = "Размер поля:";
     private static final Package _pkg;
     private static final Random _rand = new Random();
     
-    private int _boardSize = DEFAULT_BOARD_SIZE;
     private Point _mouseDownCursorPos;
-    private AILevel _aiLevel = DEFAULT_AI_LEVEL;
     
     //endregion 'Поля и константы'
     
@@ -152,7 +123,7 @@ public class GameForm
     static
     {
         IS_DEBUG = false;
-        _pkg = GameForm.class.getPackage();
+        _pkg = MainForm.class.getPackage();
         ABOUT_TEXT = MessageFormat.format("<html><body>" +
                 "<h1>{0}</h1><h2>Версия: {1}</h2><h3>Автор: {2}</h3><p>Создана в 2022 г. в рамках выполнения задания №7 " +
                 "курса GeekBrains \"Основы Java. Интерактивный курс\"</p>" +
@@ -192,13 +163,13 @@ public class GameForm
                             break;
                         }
                     }
-                    UIManager.setLookAndFeel(GameForm.DEFAULT_LOOK_AND_FEEL.getLAFClassPath());
+                    UIManager.setLookAndFeel(MainForm.DEFAULT_LOOK_AND_FEEL.getLAFClassPath());
                 }
                 catch (Exception e)
                 {
                     // If Nimbus is not available, you can set the GUI to another look and feel.
                     System.err.println("Не удалось установить стиль интерфейса по умолчанию: " +
-                            GameForm.DEFAULT_LOOK_AND_FEEL.name() + " Classpath: " + GameForm.DEFAULT_LOOK_AND_FEEL.getLAFClassPath());
+                            MainForm.DEFAULT_LOOK_AND_FEEL.name() + " Classpath: " + MainForm.DEFAULT_LOOK_AND_FEEL.getLAFClassPath());
                     System.err.println();
                     System.err.println(e.toString());
                     e.printStackTrace();
@@ -207,12 +178,12 @@ public class GameForm
                 // Создаём нашу игровую фому и навешиваем на неё обработчики событий
                 try
                 {
-                    new GameForm().setActionListeners();
+                    new MainForm().setActionListeners();
                 }
                 catch (Exception ex)
                 {
                     String mes = MessageFormat.format("Не удалось создать главный класс игры \"{1}\"{0}{2}",
-                            System.lineSeparator(), GameForm.class.getName(), ex.toString());
+                            System.lineSeparator(), MainForm.class.getName(), ex.toString());
                     System.err.println(mes);
                     System.err.println();
                     ex.printStackTrace();
@@ -225,7 +196,7 @@ public class GameForm
     /**
      * Конструктор главной формы
      * */
-    public GameForm()
+    public MainForm()
     {
         String progName = _pkg.getImplementationTitle() + "";
         _mainFrame.setTitle(progName.isEmpty() || progName.equalsIgnoreCase("null") ? "# \"Крестики-нолики\"" : progName);
@@ -242,7 +213,43 @@ public class GameForm
         {
             System.err.println("Не найден ресурс: " + ICON_FILE_RESOURCE_NAME);
         }
+        TableModel dataModel = new AbstractTableModel()
+        {
+            @Override
+            public int getRowCount()
+            {
+                return GameState.Current.getBoardSize();
+            }
+    
+            @Override
+            public int getColumnCount()
+            {
+                return GameState.Current.getBoardSize();
+            }
+    
+            @Override
+            public Object getValueAt(int rowIndex, int columnIndex)
+            {
+                return GameState.Current.getSymbolAt(rowIndex, columnIndex);
+            }
+            
+            /*
+            * Возвращает содержимое клетки по её номеру
+            * */
+            public char getValueAt(int cellNumber)
+            {
+                int bSize = GameState.Current.getBoardSize();
+                return GameState.Current.getSymbolAt(cellNumber / bSize, cellNumber % bSize);
+            }
+        };
+        tableGameBoard.setModel(dataModel);
+        tableGameBoard.setAutoResizeMode(JTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS);
+        tableGameBoard.setAutoCreateColumnsFromModel(true);
+        tableGameBoard.setCellSelectionEnabled(false);
+        tableGameBoard.setColumnSelectionAllowed(false);
+        tableGameBoard.setRowSelectionAllowed(false);
         createMainMenuFor(_mainFrame);
+        lbAICaption.setMinimumSize(lbPlayerCaption.getSize());
         _mainFrame.pack();
         _mainFrame.setVisible(true);
     }
@@ -256,7 +263,7 @@ public class GameForm
     private void createMainMenuFor(JFrame jf)
     {
         JMenuBar miniBar = new JMenuBar();
-        JMenuItem miNewGame = new JMenuItem("Новая игра");
+        JMenuItem miNewGame = new JMenuItem(startNewGameAction);
         miniBar.add(miNewGame);
         JMenu mOptions = new JMenu("Опции");
         miniBar.add(mOptions);
@@ -274,15 +281,17 @@ public class GameForm
             mSkins.add(rb);
         }
         mOptions.add(mSkins);
-        ButtonGroup bgAI = new ButtonGroup();
-        for (AILevel lvl : AILevel.values())
+        _bgAI = new ButtonGroup();
+        for (Object lvl : (IS_DEBUG ? AILevel.values() : Arrays.stream(AILevel.values()).skip(1).toArray()))
         {
-            JRadioButtonMenuItem rb = new JRadioButtonMenuItem(lvl.description, lvl == this.DEFAULT_AI_LEVEL);
+            AILevel level = (AILevel)lvl;
+            JRadioButtonMenuItem rb = new JRadioButtonMenuItem(level.description, level == GameState.Current.getAiLevel());
             rb.addItemListener(aiLevelChangedMenuClickHandler);
-            bgAI.add(rb);
+            _bgAI.add(rb);
             mAILevels.add(rb);
         }
-        JMenuItem miChangeBoardSize = mOptions.add(changeBoardSizeClickHandler);
+        _miChangeBoardSize = mOptions.add(changeBoardSizeClickHandler);
+        _miChangeBoardSize.setText(BOARD_SIZE_CAPTION_START + " " + GameState.Current.getBoardSize() + "x" + GameState.Current.getBoardSize());
         JEditorPane txtAbout = new JEditorPane("text/html", ABOUT_TEXT);
         txtAbout.addHyperlinkListener(this.hyperlinkClickHandler);
         txtAbout.setEditable(false);
@@ -302,11 +311,41 @@ public class GameForm
     }
     
     /**
-     * Метод навешивания обработчиков
+     * Метод навешивания обработчиков на все элементы формы после запуска GUI
      * */
     private void setActionListeners()
     {
+        GameState.Current.addStateChangeListener(e -> {
+            if (e instanceof BoardSizeChangedEvent)
+            {
+                this.updateBoardSize(((BoardSizeChangedEvent)e).size);
+            }
+            else if (e instanceof AILevelChangedEvent)
+            {
+                AILevel lvl = ((AILevelChangedEvent)e).aiLevel;
+                Enumeration<AbstractButton> buttons = this._bgAI.getElements();
+                for (int i = 0; i < this._bgAI.getButtonCount(); i++)
+                {
+                    AbstractButton ab = buttons.nextElement();
+                    if (!ab.isSelected() && (ab instanceof JRadioButtonMenuItem) && ab.getText().equalsIgnoreCase(lvl.description))
+                    {
+                        ab.setSelected(true);
+                    }
+                }
+            }
+        });
+        // разрешаем таскать форму за любые не интерактивные элементы
+        pMain.addMouseListener(this.mouseDownHandler);
+        pMain.addMouseMotionListener(this.mouseDragHandler);
+    }
     
+    /**
+     * Метод установки нового размера игрового Поля
+     * */
+    private void updateBoardSize(int newSize)
+    {
+        int bSize = GameState.Current.getBoardSize();
+        _miChangeBoardSize.setText(BOARD_SIZE_CAPTION_START + " " + bSize + "x" + bSize);
     }
     
     //endregion 'Методы'
@@ -315,6 +354,28 @@ public class GameForm
     
     
     //region 'Обработчики'
+    
+    private final Action startNewGameAction = new AbstractAction("Новая игра")
+    {
+        @Override
+        public void actionPerformed(ActionEvent e)
+        {
+            if (GameState.Current.isStarted())
+            {
+                int res = JOptionPane.showConfirmDialog((Component) e.getSource(), "Вы уверены, что хотите начать игру сначала?",
+                        "Подтверждение", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (res == JOptionPane.OK_OPTION)
+                {
+                    GameState.Current.Reset();
+                }
+                Object[] options = new Object[] { GameState.DEFAULT_PLAYER_SYMBOL, GameState.DEFAULT_CPU_SYMBOL };
+                res = JOptionPane.showOptionDialog((Component) e.getSource(), "Выберите сторону (\"X\" ходит первым!)",
+                        "Выбор стороны", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null,
+                        options, GameState.DEFAULT_PLAYER_SYMBOL);
+                GameState.Current.setPlayerSymbol((char)options[res]);
+            }
+        }
+    };
     
     /**
      * Обработчик ссылок в окне "О программе"
@@ -336,15 +397,8 @@ public class GameForm
     /**
      * Обработчик меню изменения размера Поля
     * */
-    private final Action changeBoardSizeClickHandler = new AbstractAction(BOARD_SIZE_CAPTION_START + " " +
-            DEFAULT_BOARD_SIZE + "x" + DEFAULT_BOARD_SIZE)
+    private final Action changeBoardSizeClickHandler = new AbstractAction()
     {
-        private void updateBoardSize()
-        {
-            JOptionPane.showMessageDialog(pMain, "Нужно подумать - разрешать ли менять размер доски посреди партии",
-                    "Ещё не реализовано!", JOptionPane.QUESTION_MESSAGE);
-        }
-        
         @Override
         public void actionPerformed(ActionEvent e)
         {
@@ -357,12 +411,13 @@ public class GameForm
                 {
                     if (newSize == null)    // пользователь отказался от ввода
                     {
-                        newSize = String.valueOf(_boardSize);
+                        newSize = String.valueOf(GameState.Current.getBoardSize());
                     }
                     else
                     {
-                        _boardSize = Integer.parseUnsignedInt(newSize);
-                        updateBoardSize();
+                        int boardSize = Integer.parseUnsignedInt(newSize);
+                        GameState.Current.setBoardSize(boardSize);
+                        updateBoardSize(boardSize);
                     }
                 }
                 catch (NumberFormatException nex)
@@ -379,7 +434,7 @@ public class GameForm
     /**
      * Обработчик изменения уровня ИИ
      */
-    private ItemListener aiLevelChangedMenuClickHandler = new ItemListener()
+    private final ItemListener aiLevelChangedMenuClickHandler = new ItemListener()
     {
         @Override
         public void itemStateChanged(ItemEvent e)
@@ -394,7 +449,7 @@ public class GameForm
             }
             else
             {
-                _aiLevel = lvl;
+                GameState.Current.setAiLevel(lvl);
             }
         }
     };
@@ -402,7 +457,7 @@ public class GameForm
     /**
      * Обработчик меню "Сменить скин"
      */
-    private ItemListener skinChangedMenuClickHandler = new ItemListener()
+    private final ItemListener skinChangedMenuClickHandler = new ItemListener()
     {
         @Override
         public void itemStateChanged(ItemEvent e)
@@ -434,7 +489,7 @@ public class GameForm
      * @implNote почему-то получилось, только когда я разнёс по разным Прослушивателям обработку событий
      *          первоначального зажатия кнопки мыши и Перемещения мыши в зажатом состоянии.
      * */
-    private MouseListener mouseDownHandler = new MouseAdapter()
+    private final MouseListener mouseDownHandler = new MouseAdapter()
     {
         @Override
         public void mousePressed(MouseEvent e)
@@ -448,7 +503,7 @@ public class GameForm
     /**
      * Обработчик перетаскивания окна - нужен для организации перетаскивания окна за произвольные компоненты
      * */
-    private MouseMotionListener mouseDragHandler = new MouseMotionListener()
+    private final MouseMotionListener mouseDragHandler = new MouseMotionListener()
     {
         @Override
         public void mouseDragged(MouseEvent e)
