@@ -19,7 +19,6 @@ import java.util.Random;
 
 public class MainForm
 {
-    
     /**
      * Перечисление возможных стилей интерфейса
      * */
@@ -202,7 +201,9 @@ public class MainForm
         String progName = _pkg.getImplementationTitle() + "";
         _mainFrame.setTitle(progName.isEmpty() || progName.equalsIgnoreCase("null") ? "# \"Крестики-нолики\"" : progName);
         _mainFrame.setContentPane(pMain);
-        _mainFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        // по умолчанию при закрытии ничего не делаем, вроде как это нужно для того, чтобы можно было отобразить запрос
+        //_mainFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        _mainFrame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         _mainFrame.setLocationByPlatform(true);
         _mainFrame.setMinimumSize(new Dimension(480, 240));
         try
@@ -274,18 +275,7 @@ public class MainForm
         JMenuBar miniBar = new JMenuBar();
         JMenu mGame = new JMenu("Игра");
         mGame.add(actStartNewGame);
-        mGame.add(new AbstractAction("Выход")
-        {
-            @Override
-            public void actionPerformed(ActionEvent e)
-            {
-                if (JOptionPane.showConfirmDialog(_mainFrame, "Вы уверены, что хотите выйти?","Выход из игры",
-                        JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION)
-                {
-                    System.exit(0);
-                }
-            }
-        });
+        mGame.add(actExitProgram);
         miniBar.add(mGame);
         JMenu mOptions = new JMenu("Опции");
         miniBar.add(mOptions);
@@ -340,11 +330,11 @@ public class MainForm
         GameState.Current.addStateChangeListener(e -> {
             if (e instanceof BoardSizeChangedEvent)
             {
-                this.updateBoardSize(((BoardSizeChangedEvent)e).size);
+                this.updateBoardSize(((BoardSizeChangedEvent) e).size);
             }
             else if (e instanceof AILevelChangedEvent)
             {
-                AILevel lvl = ((AILevelChangedEvent)e).aiLevel;
+                AILevel lvl = ((AILevelChangedEvent) e).aiLevel;
                 Enumeration<AbstractButton> buttons = this._bgAI.getElements();
                 for (int i = 0; i < this._bgAI.getButtonCount(); i++)
                 {
@@ -359,6 +349,14 @@ public class MainForm
         // разрешаем таскать форму за любые не интерактивные элементы
         pMain.addMouseListener(this.mouseDownHandler);
         pMain.addMouseMotionListener(this.mouseDragHandler);
+        _mainFrame.addWindowListener(new WindowAdapter()
+        {
+            @Override
+            public void windowClosing(WindowEvent e)
+            {
+                actExitProgram.actionPerformed(new ActionEvent(_mainFrame, ActionEvent.ACTION_PERFORMED, null));
+            }
+        });
     }
     
     /**
@@ -377,6 +375,9 @@ public class MainForm
     
     //region 'Обработчики'
     
+    /**
+     * Действие - "Новая игра"
+     * */
     private final Action actStartNewGame = new AbstractAction("Новая игра")
     {
         @Override
@@ -395,6 +396,22 @@ public class MainForm
                         "Выбор стороны", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null,
                         options, GameState.DEFAULT_PLAYER_SYMBOL);
                 GameState.Current.setPlayerSymbol((char)options[res]);
+            }
+        }
+    };
+    
+    /**
+     * Действие выполняемое при закрытии программы
+     * */
+    private final Action actExitProgram = new AbstractAction("Выход")
+    {
+        @Override
+        public void actionPerformed(ActionEvent e)
+        {
+            if (JOptionPane.showConfirmDialog(_mainFrame, "Вы уверены, что хотите выйти?","Выход из игры",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION)
+            {
+                System.exit(0);
             }
         }
     };
