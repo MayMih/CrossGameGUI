@@ -329,19 +329,25 @@ public class MainForm
         @Override
         public void actionPerformed(ActionEvent e)
         {
+            final Object[] options = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL};
+            int res = -1;
             if (GameState.Current.isStarted())
             {
-                int res = JOptionPane.showConfirmDialog((Component) e.getSource(), "Вы уверены, что хотите начать игру сначала?",
+                res = JOptionPane.showConfirmDialog((Component) e.getSource(), "Вы уверены, что хотите начать игру сначала?",
                         "Подтверждение", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
-                if (res == JOptionPane.OK_OPTION)
+                if (res != JOptionPane.OK_OPTION)
                 {
-                    GameState.Current.Reset();
+                    return;
                 }
-                Object[] options = new Object[] { GameState.DEFAULT_PLAYER_SYMBOL, GameState.DEFAULT_CPU_SYMBOL };
-                res = JOptionPane.showOptionDialog((Component) e.getSource(), "Выберите сторону (\"X\" ходит первым!)",
-                        "Выбор стороны", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null,
-                        options, GameState.DEFAULT_PLAYER_SYMBOL);
-                GameState.Current.setPlayerSymbol((char)options[res]);
+            }
+            GameState.Current.Reset();
+            res = JOptionPane.showOptionDialog((Component) e.getSource(), "Выберите сторону (\"X\" ходит первым!)",
+                    "Выбор стороны", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null,
+                    options, GameState.X_SYMBOL);
+            GameState.Current.setPlayerSymbol((char)options[res] == GameState.X_SYMBOL);
+            if (GameState.Current.isCpuTurn())
+            {
+                GameState.Current.makeCpuTurn();
             }
         }
     };
@@ -370,10 +376,11 @@ public class MainForm
         {
             try
             {
-                Desktop.getDesktop().browse(e.getURL().toURI());    // roll your own link launcher or use Desktop if J6+
+                Desktop.getDesktop().browse(e.getURL().toURI());
             }
             catch (Exception ex)
             {
+                System.err.append("Error: Can't go to URL: \"").append(ex.getMessage()).println("\"");
                 ex.printStackTrace();
             }
         }

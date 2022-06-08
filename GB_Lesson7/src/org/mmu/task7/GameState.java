@@ -8,12 +8,14 @@ import org.mmu.task7.events.PlayerSymbolChangedEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EventListener;
+import java.util.Random;
 
 /**
  * Класс-синглтон текущего состояния игры
  * */
 public final class GameState
 {
+    
     /**
      * Событие изменения состояния Игры
      * */
@@ -23,33 +25,31 @@ public final class GameState
     }
     
     
+    
     //region 'Поля и константы'
-    public static final char DEFAULT_PLAYER_SYMBOL = 'X', DEFAULT_CPU_SYMBOL = 'O';
+    
+    public static final char X_SYMBOL = 'X', ZERO_SYMBOL = 'O';
     public static final int DEFAULT_BOARD_SIZE = 3;
+    public static final GameState Current = new GameState();
     
     private static final AILevel DEFAULT_AI_LEVEL = AILevel.Low;
-    
-    public static final GameState Current = new GameState();
+    private static final Random _rand = new Random();
+    private static final char EMPTY_CELL_SYMBOL = ' ';//'□';
     
     private AILevel aiLevel = DEFAULT_AI_LEVEL;
     private int boardSize = DEFAULT_BOARD_SIZE;
-    private char playerSymbol = DEFAULT_PLAYER_SYMBOL, cpuSymbol = DEFAULT_CPU_SYMBOL;
-    private static final char EMPTY_CELL_SYMBOL = ' ';//'□';
+    private char playerSymbol = X_SYMBOL, cpuSymbol = ZERO_SYMBOL;
     private char[][] gameBoard = new char[DEFAULT_BOARD_SIZE][DEFAULT_BOARD_SIZE];
     private boolean isStarted = false;
+    private boolean cpuTurn;
     
     /**
-     * Счётчик ходов ПК
-     *
-     * @implNote    является индексом для массива {@link #_cpuTurnsHistory}, поэтому отображает кол-во ходов меньшее на 1
-     */
-    private int _cpuTurnsCounter;
-    /**
      * Список ходов ПК
-     * @implNote  Хотя тут и логичнее использовать список, т.к. кол-во ходов заранее неизвестно, но производительность списков
-     *      в Java под вопросом, учитывая обязательную упаковку/распаковку...
+     * @implNote  Хотя тут и логичнее использовать список (т.к. кол-во ходов заранее неизвестно), но производительность
+     *  списков в Java под вопросом, учитывая обязательную упаковку/распаковку...
      * */
-    private ArrayList<Integer> _cpuTurnsHistory = new ArrayList<Integer>(boardSize * boardSize);
+    private ArrayList<Integer> cpuTurnsHistory;
+   
     private static ArrayList<GameStateChangedEventListener> _listeners;
     
     //endregion 'Поля и константы'
@@ -73,7 +73,7 @@ public final class GameState
         {
             this.boardSize = value;
             gameBoard = new char[this.boardSize][this.boardSize];
-            _cpuTurnsHistory.ensureCapacity(boardSize * boardSize);
+            getCpuTurnsHistory().ensureCapacity(boardSize * boardSize);
             Reset();
             fireGameStateChangedEvent(new BoardSizeChangedEvent(this, value));
         }
@@ -98,15 +98,46 @@ public final class GameState
         return isStarted && !isNoMoreMoves();
     }
     
-    public void setPlayerSymbol(char newPlayerSymbol)
+    /**
+     * После смены символа игрока устанавливает признак хода ИИ ({@link #isCpuTurn()}), если символ игрока не совпадает с
+     *  {@link #X_SYMBOL} и игра ещё не начата (см. {@link #isStarted()}).
+     *  Также заменяет {@link #cpuSymbol} на "противоположный"
+     *
+     * @param isXsymbol - True - символ 'X', False - символ 'O'
+     * */
+    public void setPlayerSymbol(boolean isXsymbol)
     {
-        this.playerSymbol = newPlayerSymbol;
+        this.playerSymbol = isXsymbol ? X_SYMBOL : ZERO_SYMBOL;
+        this.cpuSymbol = isXsymbol ? ZERO_SYMBOL : X_SYMBOL;
+        if (!isStarted())
+        {
+            setCpuTurn(!isXsymbol);
+        }
         fireGameStateChangedEvent(new PlayerSymbolChangedEvent(this, playerSymbol));
     }
     
     public char getPlayerSymbol()
     {
         return playerSymbol;
+    }
+    
+    public boolean isCpuTurn()
+    {
+        return cpuTurn;
+    }
+    
+    private void setCpuTurn(boolean cpuTurn)
+    {
+        this.cpuTurn = cpuTurn;
+    }
+    
+    private synchronized ArrayList<Integer> getCpuTurnsHistory()
+    {
+        if (cpuTurnsHistory == null)
+        {
+            cpuTurnsHistory = new ArrayList<Integer>(boardSize * boardSize);
+        }
+        return cpuTurnsHistory;
     }
     
     //endregion 'Свойства'
@@ -163,9 +194,7 @@ public final class GameState
     
     public synchronized void Reset()
     {
-        /*Arrays.stream(_cpuTurnsHistory).forEach(x -> Arrays.fill(x, 0));
-        Arrays.fill(_cpuTurnsHistory, 0);*/
-        _cpuTurnsHistory.clear();
+        getCpuTurnsHistory().clear();
         isStarted = false;
         initBoard();
     }
@@ -192,7 +221,7 @@ public final class GameState
      * */
     public boolean setSymbolAt(int rowIndex, int colIndex, char value)
     {
-        if (value != DEFAULT_PLAYER_SYMBOL && value != DEFAULT_CPU_SYMBOL && value != EMPTY_CELL_SYMBOL)
+        if (value != X_SYMBOL && value != ZERO_SYMBOL && value != EMPTY_CELL_SYMBOL)
         {
             return false;
         }
@@ -334,6 +363,198 @@ public final class GameState
         }
         return isWinFound;
     }
+    
+    /**
+     * Метод хода ИИ противника (включает вывод доски на консоль)
+     *
+     * @return  возвращает True, если обнаружена победа ИИ
+     *
+     * @apiNote создаёт массив {@link #cpuTurnsHistory}, если он ещё не был создан
+     * */
+    public boolean makeCpuTurn()
+    {
+        class CPU
+        {
+            void makeRandomTurn()
+            {
+            
+            }
+        }
+        
+        // генерация координат хода ИИ
+        int cellNumber = -1, rowIndex = 0, colIndex = 0;
+        switch (getAiLevel())
+        {
+            case Stupid:
+            {
+                cellNumber = generateRandomValidCoords();
+                break;
+            }
+            case Low:
+            {
+                if (getCpuTurnsHistory().isEmpty())
+                {
+                    cellNumber = generateRandomValidCoords();
+                    getCpuTurnsHistory().add(cellNumber);
+                }
+                else
+                {
+                    boolean isCoordsValid = false;
+                    // сначала пытаемся сгенерировать соседнюю точку
+                    for (int i = 0; (i <= getCpuTurnsHistory().size()) && !isCoordsValid; i++)
+                    {
+                        // выбираем случайную опорную точку, относительно которой будем пытаться делать ход
+                        int baseTurnCellNumber = getCpuTurnsHistory().get(_rand.nextInt(getCpuTurnsHistory().size()));
+                        rowIndex = baseTurnCellNumber / boardSize;
+                        colIndex = baseTurnCellNumber % boardSize;
+                        if (!noMoreMovesInRegion(rowIndex - 1, colIndex - 1))
+                        {
+                            do
+                            {
+                                // генерируем случайный коэффициент от (-1) до 1 для получения соседних координат
+                                rowIndex += -1 + _rand.nextInt(3);
+                                colIndex += -1 + _rand.nextInt(3);
+                                isCoordsValid = checkCoords(rowIndex, colIndex, gameBoard, false);
+                                if (isCoordsValid)
+                                {
+                                    cellNumber = convertCoordsToCellNumber(rowIndex, colIndex);
+                                    getCpuTurnsHistory().add(cellNumber);
+                                }
+                                else
+                                {
+                                    rowIndex = getRowIndexFromCellNumber(baseTurnCellNumber);
+                                    colIndex = getColumnIndexFromCellNumber(baseTurnCellNumber);
+                                }
+                            }
+                            while (!isCoordsValid);
+                        }
+                    }
+                    // если же походить в соседнюю клетку не выходит - видимо они заняты, то делаем случайный ход
+                    if (!isCoordsValid)
+                    {
+                        cellNumber = generateRandomValidCoords();
+                        getCpuTurnsHistory().add(cellNumber);
+                    }
+                }
+                break;
+            }
+//            case BelowNormal:
+//            {
+//                break;
+//            }
+            case Unknown:
+            {
+                break;
+            }
+            default:
+            {
+                // при неизвестном уровне интеллекта - пропуск хода ("мозг отсутствует")
+                System.out.println("DEBUG: CPU opponent turned off");
+                return false;
+            }
+        }
+        rowIndex = getRowIndexFromCellNumber(cellNumber);
+        colIndex = getColumnIndexFromCellNumber(cellNumber);
+        gameBoard[rowIndex][colIndex] = cpuSymbol;
+        return checkWin(cpuSymbol, rowIndex, colIndex);
+    }
+    
+    /**
+     *  Метод генерации случайной пары "подходящих" координат
+     *
+     * @return  Номер ячейки в квадратной таблице
+     *
+     * @implNote TODO: подумать, возможно логичнее возвращать объект вроде Point, но стандартный Point в Java жёстко завязан на геометрию (AWT)
+     * */
+    private int generateRandomValidCoords()
+    {
+        int rowIndex = 0, colIndex = 0;
+        do
+        {
+            rowIndex = _rand.nextInt(boardSize);
+            colIndex = _rand.nextInt(boardSize);
+        }
+        while (!checkCoords(rowIndex, colIndex, gameBoard, false));
+        return convertCoordsToCellNumber(rowIndex, colIndex);
+    }
+    
+    /**
+     * Метод проверки корректности хода
+     *
+     * @param rowIndex - координата от 0 до {@link #boardSize}
+     * @param columnIndex - координата от 0 до {@link #boardSize}
+     * @param isUserTurn - true - ход пользователя - на экран будут выводиться сообщения о неправильных координатах
+     * */
+    private boolean checkCoords(int rowIndex, int columnIndex, char[][] gameBoard, boolean isUserTurn)
+    {
+        if (rowIndex < 0 || rowIndex >= gameBoard.length || columnIndex < 0 || columnIndex >= gameBoard.length)
+        {
+            if (isUserTurn)
+            {
+                System.err.append("Координаты за пределами доски, числа должны быть от 1 до ").println(gameBoard.length);
+            }
+            return false;
+        }
+        else if (gameBoard[rowIndex][columnIndex] == EMPTY_CELL_SYMBOL)
+        {
+            return true;
+        }
+        else
+        {
+            if (isUserTurn)
+            {
+                System.err.println("Эта клетка уже занята - ход невозможен!");
+            }
+            return false;
+        }
+    }
+    
+    int[] convertCellNumberToCoords(int number)
+    {
+       return new int[] { number / boardSize, number % boardSize };
+    }
+    
+    int convertCoordsToCellNumber(int rowIndex, int columnIndex)
+    {
+        return rowIndex * boardSize + columnIndex;
+    }
+    
+    int getRowIndexFromCellNumber(int cellNumber)
+    {
+        return cellNumber / boardSize;
+    }
+    
+    int getColumnIndexFromCellNumber(int cellNumber)
+    {
+        return cellNumber % boardSize;
+    }
+    
+    /**
+     * Метод проверки доступных клеток в регионе (3 Х 3 относительно указанного начала координат)
+     * */
+    private boolean noMoreMovesInRegion(int minX, int minY)
+    {
+        for (int i = minX; (i < minX + 3) && (i < boardSize); i++)
+        {
+            if (i < 0)
+            {
+                continue;
+            }
+            for (int j = minY; (j < minY + 3) && (j < boardSize); j++)
+            {
+                if (j < 0)
+                {
+                    continue;
+                }
+                if (gameBoard[i][j] == EMPTY_CELL_SYMBOL)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
     
     //endregion 'Методы'
     
