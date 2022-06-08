@@ -25,9 +25,9 @@ public final class GameState
     
     //region 'Поля и константы'
     public static final char DEFAULT_PLAYER_SYMBOL = 'X', DEFAULT_CPU_SYMBOL = 'O';
+    public static final int DEFAULT_BOARD_SIZE = 3;
     
     private static final AILevel DEFAULT_AI_LEVEL = AILevel.Low;
-    private static final int DEFAULT_BOARD_SIZE = 3;
     
     public static final GameState Current = new GameState();
     
@@ -46,10 +46,10 @@ public final class GameState
     private int _cpuTurnsCounter;
     /**
      * Список ходов ПК
-     * TODO: тут, конечно, логичнее использовать список, т.к. кол-во ходов заранее неизвестно (но мы пока не знаем о коллекциях),
-     *  хотя производительность списков в Java под вопросом, учитывая обязательную упаковку/распаковку...
+     * @implNote  Хотя тут и логичнее использовать список, т.к. кол-во ходов заранее неизвестно, но производительность списков
+     *      в Java под вопросом, учитывая обязательную упаковку/распаковку...
      * */
-    private int[][] _cpuTurnsHistory;
+    private ArrayList<Integer> _cpuTurnsHistory = new ArrayList<Integer>(boardSize * boardSize);
     private static ArrayList<GameStateChangedEventListener> _listeners;
     
     //endregion 'Поля и константы'
@@ -73,6 +73,7 @@ public final class GameState
         {
             this.boardSize = value;
             gameBoard = new char[this.boardSize][this.boardSize];
+            _cpuTurnsHistory.ensureCapacity(boardSize * boardSize);
             Reset();
             fireGameStateChangedEvent(new BoardSizeChangedEvent(this, value));
         }
@@ -162,16 +163,52 @@ public final class GameState
     
     public synchronized void Reset()
     {
-        Arrays.stream(_cpuTurnsHistory).forEach(x -> Arrays.fill(x, 0));
-        Arrays.fill(_cpuTurnsHistory, 0);
+        /*Arrays.stream(_cpuTurnsHistory).forEach(x -> Arrays.fill(x, 0));
+        Arrays.fill(_cpuTurnsHistory, 0);*/
+        _cpuTurnsHistory.clear();
         isStarted = false;
         initBoard();
     }
     
+    /*
+     * Возвращает содержимое клетки по её координатам
+     * */
     public char getSymbolAt(int rowIndex, int colIndex)
     {
         return gameBoard[rowIndex][colIndex];
     }
+    
+    /*
+     * Возвращает содержимое клетки по её номеру
+     * */
+    public char getValueAt(int cellNumber)
+    {
+        return getSymbolAt(cellNumber / boardSize, cellNumber % boardSize);
+    }
+    
+    /**
+     * Устанавливает указанный символ по указанным координатам
+     * @return True, если символ совпадает с одним из известных
+     * */
+    public boolean setSymbolAt(int rowIndex, int colIndex, char value)
+    {
+        if (value != DEFAULT_PLAYER_SYMBOL && value != DEFAULT_CPU_SYMBOL && value != EMPTY_CELL_SYMBOL)
+        {
+            return false;
+        }
+        gameBoard[rowIndex][colIndex] = value;
+        return true;
+    }
+    
+    /**
+     * Устанавливает указанный символ в клетку по её номеру
+     * @return True, если символ совпадает с одним из известных
+     * */
+    public boolean setSymbolAt(int cellNumber, char value)
+    {
+        return setSymbolAt(cellNumber / boardSize, cellNumber % boardSize, value);
+    }
+    
     
     /**
      * Метод заполнения квадратного массива указанной размерности, заполоненного пустым символов '□'

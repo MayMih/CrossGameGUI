@@ -2,12 +2,13 @@ package org.mmu.task7;
 
 import org.mmu.task7.events.AILevelChangedEvent;
 import org.mmu.task7.events.BoardSizeChangedEvent;
+import org.mmu.task7.events.GameStateChangedEventBase;
 
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
 import javax.swing.table.AbstractTableModel;
-import javax.swing.table.TableModel;
+import javax.swing.table.TableColumn;
 import java.awt.*;
 import java.awt.event.*;
 import java.text.MessageFormat;
@@ -19,68 +20,51 @@ import java.util.Random;
 
 public class MainForm
 {
-    /**
-     * Перечисление возможных стилей интерфейса
+    
+    /*
+     * Модель данных для таблицы JTable
      * */
-    enum Skin
+    class CrossGameTableModel extends AbstractTableModel
     {
-        System("Стиль ОС по умолчанию", UIManager.getSystemLookAndFeelClassName()),
-        /**
-         * Стандартный кроссплатформенный стиль интерфейса
-         * */
-        Metal("Стандартный кроссплатформенный стиль интерфейса", UIManager.getCrossPlatformLookAndFeelClassName()),
-        /**
-         * Современный кроссплатформенный стиль интерфейса (начиная с Java 6)
-         * */
-        Nimbus("Современный кроссплатформенный стиль интерфейса (начиная с Java 6)"),
-        /**
-         * Сторонний бесплатный стиль - светлая тема -  (минимум Java 8)
-         * @see <a href=https://www.formdev.com/flatlaf/>FlatLaf - Flat Look and Feel</>
-         * */
-        FlatLight("Сторонний бесплатный стиль - светлая тема - (минимум Java 8)", "com.formdev.flatlaf.FlatLightLaf"),
-        /**
-         * Сторонний бесплатный стиль - тёмная тема - (минимум Java 8)
-         * @see <a href=https://www.formdev.com/flatlaf/themes/>FlatLaf - Flat Look and Feel</>
-         * */
-        FlatDark("Сторонний бесплатный стиль - светлая тема - (минимум Java 8)", "com.formdev.flatlaf.FlatDarkLaf"),
-        /**
-         * Сторонний бесплатный стиль - тёмная тема - (минимум Java 8)
-         * @see <a href=https://www.formdev.com/flatlaf/themes/>FlatLaf - Flat Look and Feel</>
-         * */
-        FlatIdea("Сторонний бесплатный стиль - светлая тема в духе ItelliJ Idea 2019.2+ - (минимум Java 8)",
-                "com.formdev.flatlaf.FlatIntelliJLaf"),
-        /**
-         * Сторонний бесплатный стиль - тёмная тема - (минимум Java 8)
-         * @see <a href=https://www.formdev.com/flatlaf/themes/>FlatLaf - Flat Look and Feel</>
-         * */
-        FlatDracula("Сторонний бесплатный стиль - тёмная тема в духе ItelliJ Idea 2019.2+ - (минимум Java 8)",
-                "com.formdev.flatlaf.FlatDarculaLaf");
-        
-        private String lafClassPath;
-        
-        private final String toolTip;
-        
-        Skin() { this(""); };
-        
-        Skin(String description)
+        @Override
+        public int getRowCount()
         {
-            toolTip = description;
+            return GameState.Current.getBoardSize();
+        }
+    
+        @Override
+        public int getColumnCount()
+        {
+            return GameState.Current.getBoardSize();
+        }
+    
+        @Override
+        public Object getValueAt(int rowIndex, int columnIndex)
+        {
+            return GameState.Current.getSymbolAt(rowIndex, columnIndex);
+        }
+    
+        @Override
+        public void setValueAt(Object aValue, int rowIndex, int columnIndex)
+        {
+            GameState.Current.setSymbolAt(rowIndex, columnIndex, aValue.toString().charAt(0));
+            fireTableCellUpdated(rowIndex, columnIndex);
+        }
+    
+        @Override
+        public boolean isCellEditable(int rowIndex, int columnIndex)
+        {
+            return false;
+        }
+    
+        public int getSize()
+        {
+            return GameState.Current.getBoardSize();
         }
         
-        Skin(String description, String lafPath)
+        public void setSize(int newSize)
         {
-            this(description);
-            lafClassPath = lafPath;
-        }
-        
-        public void setLAFClassPath(String path)
-        {
-            lafClassPath = path;
-        }
-        
-        public String getLAFClassPath()
-        {
-            return lafClassPath;
+            GameState.Current.setBoardSize(newSize);
         }
     }
     
@@ -115,6 +99,7 @@ public class MainForm
     private Point _mouseDownCursorPos;
     
     //endregion 'Поля и константы'
+    
     
     
     /**
@@ -178,7 +163,8 @@ public class MainForm
                 // Создаём нашу игровую фому и навешиваем на неё обработчики событий
                 try
                 {
-                    new MainForm().setActionListeners();
+                    MainForm mf = new MainForm().setActionListeners();
+                    mf.actStartNewGame.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, null));
                 }
                 catch (Exception ex)
                 {
@@ -202,10 +188,9 @@ public class MainForm
         _mainFrame.setTitle(progName.isEmpty() || progName.equalsIgnoreCase("null") ? "# \"Крестики-нолики\"" : progName);
         _mainFrame.setContentPane(pMain);
         // по умолчанию при закрытии ничего не делаем, вроде как это нужно для того, чтобы можно было отобразить запрос
-        //_mainFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         _mainFrame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         _mainFrame.setLocationByPlatform(true);
-        _mainFrame.setMinimumSize(new Dimension(480, 240));
+        _mainFrame.setMinimumSize(new Dimension(400, 200));
         try
         {
             ImageIcon img = new ImageIcon(Objects.requireNonNull(getClass().getResource(ICON_FILE_RESOURCE_NAME)));
@@ -215,50 +200,17 @@ public class MainForm
         {
             System.err.println("Не найден ресурс: " + ICON_FILE_RESOURCE_NAME);
         }
-        TableModel dataModel = new AbstractTableModel()
-        {
-            @Override
-            public int getRowCount()
-            {
-                return GameState.Current.getBoardSize();
-            }
-    
-            @Override
-            public int getColumnCount()
-            {
-                return GameState.Current.getBoardSize();
-            }
-    
-            @Override
-            public Object getValueAt(int rowIndex, int columnIndex)
-            {
-                return GameState.Current.getSymbolAt(rowIndex, columnIndex);
-            }
-            
-            /*
-            * Возвращает содержимое клетки по её номеру
-            * */
-            public char getValueAt(int cellNumber)
-            {
-                int bSize = GameState.Current.getBoardSize();
-                return GameState.Current.getSymbolAt(cellNumber / bSize, cellNumber % bSize);
-            }
-    
-            @Override
-            public boolean isCellEditable(int rowIndex, int columnIndex)
-            {
-                return false;
-            }
-        };
-        tableGameBoard.setModel(dataModel);
-        tableGameBoard.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        createMainMenuFor(_mainFrame);
+        tableGameBoard.setModel(new CrossGameTableModel());
+        tableGameBoard.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         tableGameBoard.setAutoCreateColumnsFromModel(true);
         tableGameBoard.setCellSelectionEnabled(false);
         tableGameBoard.setColumnSelectionAllowed(false);
         tableGameBoard.setRowSelectionAllowed(false);
         //tableGameBoard.setFillsViewportHeight(true);
         tableGameBoard.setShowGrid(true);
-        createMainMenuFor(_mainFrame);
+        ((CrossGameTableModel)tableGameBoard.getModel()).setSize(GameState.DEFAULT_BOARD_SIZE);
+        boardSizeUpdated();
         lbAICaption.setMinimumSize(lbPlayerCaption.getSize());
         _mainFrame.pack();
         _mainFrame.setVisible(true);
@@ -324,28 +276,12 @@ public class MainForm
     
     /**
      * Метод навешивания обработчиков на все элементы формы после запуска GUI
+     * @return Текущий экземпляр класса формы "code behind" - НЕ создаёт его - нужно для цепочечных операций.
      * */
-    private void setActionListeners()
+    private MainForm setActionListeners()
     {
-        GameState.Current.addStateChangeListener(e -> {
-            if (e instanceof BoardSizeChangedEvent)
-            {
-                this.updateBoardSize(((BoardSizeChangedEvent) e).size);
-            }
-            else if (e instanceof AILevelChangedEvent)
-            {
-                AILevel lvl = ((AILevelChangedEvent) e).aiLevel;
-                Enumeration<AbstractButton> buttons = this._bgAI.getElements();
-                for (int i = 0; i < this._bgAI.getButtonCount(); i++)
-                {
-                    AbstractButton ab = buttons.nextElement();
-                    if (!ab.isSelected() && (ab instanceof JRadioButtonMenuItem) && ab.getText().equalsIgnoreCase(lvl.description))
-                    {
-                        ab.setSelected(true);
-                    }
-                }
-            }
-        });
+        // N.B. Здесь используется автогенерация экземпляра интерфейса с указанным методом
+        GameState.Current.addStateChangeListener(this::gameStateChangedHandler);
         // разрешаем таскать форму за любые не интерактивные элементы
         pMain.addMouseListener(this.mouseDownHandler);
         pMain.addMouseMotionListener(this.mouseDragHandler);
@@ -357,15 +293,25 @@ public class MainForm
                 actExitProgram.actionPerformed(new ActionEvent(_mainFrame, ActionEvent.ACTION_PERFORMED, null));
             }
         });
+        return this;
     }
     
     /**
-     * Метод установки нового размера игрового Поля
+     * Метод обновления экрана после изменения размера игрового Поля
      * */
-    private void updateBoardSize(int newSize)
+    private void boardSizeUpdated()
     {
         int bSize = GameState.Current.getBoardSize();
         _miChangeBoardSize.setText(BOARD_SIZE_CAPTION_START + " " + bSize + "x" + bSize);
+        ((CrossGameTableModel)tableGameBoard.getModel()).fireTableStructureChanged();
+        TableColumn cl = null;
+        for (Enumeration<TableColumn> cols = tableGameBoard.getColumnModel().getColumns(); cols.hasMoreElements(); )
+        {
+            cl = cols.nextElement();
+            cl.setPreferredWidth(cl.getMinWidth() * 2);
+        }
+        tableGameBoard.setRowHeight(cl.getMinWidth() * 2);
+        _mainFrame.pack();
     }
     
     //endregion 'Методы'
@@ -401,15 +347,15 @@ public class MainForm
     };
     
     /**
-     * Действие выполняемое при закрытии программы
+     * Действие выполняемое при закрытии программы (спрашивает подтверждение пользователя, если не "включена" отладка)
      * */
     private final Action actExitProgram = new AbstractAction("Выход")
     {
         @Override
         public void actionPerformed(ActionEvent e)
         {
-            if (JOptionPane.showConfirmDialog(_mainFrame, "Вы уверены, что хотите выйти?","Выход из игры",
-                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION)
+            if (IS_DEBUG || JOptionPane.showConfirmDialog(_mainFrame, "Вы уверены, что хотите выйти?",
+                    "Выход из игры", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION)
             {
                 System.exit(0);
             }
@@ -444,19 +390,27 @@ public class MainForm
             String newSize = "";
             do
             {
-                newSize = JOptionPane.showInputDialog((Component) e.getSource(), "Введите новый размер поля",
+                newSize = JOptionPane.showInputDialog((Component) e.getSource(), "Введите новый размер поля (одно число)",
                         "Изменение размера игрового поля", JOptionPane.INFORMATION_MESSAGE);
                 try
                 {
                     if (newSize == null)    // пользователь отказался от ввода
                     {
-                        newSize = String.valueOf(GameState.Current.getBoardSize());
+                        newSize = String.valueOf(((CrossGameTableModel)tableGameBoard.getModel()).getSize());
                     }
                     else
                     {
                         int boardSize = Integer.parseUnsignedInt(newSize);
-                        GameState.Current.setBoardSize(boardSize);
-                        updateBoardSize(boardSize);
+                        if (boardSize >= 3)
+                        {
+                            ((CrossGameTableModel)tableGameBoard.getModel()).setSize(boardSize);
+                        }
+                        else
+                        {
+                            newSize = "";
+                            JOptionPane.showMessageDialog(_mainFrame, "Размер поля должен быть >= 3",
+                                    "Размер не задан", JOptionPane.WARNING_MESSAGE);
+                        }
                     }
                 }
                 catch (NumberFormatException nex)
@@ -557,6 +511,30 @@ public class MainForm
         {
         }
     };
+    
+    /**
+     * Обработчик изменения состояния игры (в т.ч. размер поля, уровень ИИ)
+     * */
+    private void gameStateChangedHandler(GameStateChangedEventBase e)
+    {
+        if (e instanceof BoardSizeChangedEvent)
+        {
+            this.boardSizeUpdated();
+        }
+        else if (e instanceof AILevelChangedEvent)
+        {
+            AILevel lvl = ((AILevelChangedEvent) e).aiLevel;
+            Enumeration<AbstractButton> buttons = this._bgAI.getElements();
+            for (int i = 0; i < this._bgAI.getButtonCount(); i++)
+            {
+                AbstractButton ab = buttons.nextElement();
+                if (!ab.isSelected() && (ab instanceof JRadioButtonMenuItem) && ab.getText().equalsIgnoreCase(lvl.description))
+                {
+                    ab.setSelected(true);
+                }
+            }
+        }
+    }
     
     //endregion 'Обработчики'
     
