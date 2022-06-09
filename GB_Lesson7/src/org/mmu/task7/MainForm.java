@@ -1,16 +1,17 @@
 package org.mmu.task7;
 
-import org.mmu.task7.events.AILevelChangedEvent;
-import org.mmu.task7.events.BoardSizeChangedEvent;
-import org.mmu.task7.events.GameStateChangedEventBase;
+import org.mmu.task7.events.*;
 
 import javax.swing.*;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumn;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -116,6 +117,10 @@ public class MainForm
                 "<p>Ссылки: <a href=https://www.formdev.com/flatlaf/>FlatLaf - Flat Look and Feel</a></p>" +
                 "<p>Лицензия на FlatLaf: <a href=https://github.com/JFormDesigner/FlatLaf/blob/master/LICENSE>Apache 2.0 License</a></p>" +
                 "</body></html>", _pkg.getSpecificationTitle(), _pkg.getSpecificationVersion(), _pkg.getSpecificationVendor());
+        UIManager.put("OptionPane.yesButtonText"   , "Да"    );
+        UIManager.put("OptionPane.noButtonText"    , "Нет"   );
+        UIManager.put("OptionPane.cancelButtonText", "Отмена");
+        UIManager.put("OptionPane.okButtonText"    , "ОК");
     }
     
     /**
@@ -164,16 +169,23 @@ public class MainForm
                 try
                 {
                     MainForm mf = new MainForm().setActionListeners();
-                    mf.actStartNewGame.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, null));
+                    mf.actStartNewGame.actionPerformed(new ActionEvent(mf._mainFrame, ActionEvent.ACTION_PERFORMED, null));
                 }
                 catch (Exception ex)
                 {
-                    String mes = MessageFormat.format("Не удалось создать главный класс игры \"{1}\"{0}{2}",
+                    String mes = MessageFormat.format("Неожиданная ошибка программы \"{1}\"{0}{2}",
                             System.lineSeparator(), MainForm.class.getName(), ex.toString());
                     System.err.println(mes);
                     System.err.println();
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(null, mes, "Ошибка", JOptionPane.ERROR_MESSAGE);
+                    StringWriter sw = new StringWriter();
+                    PrintWriter pw = new PrintWriter(sw);
+                    ex.printStackTrace(pw);
+                    System.err.println(sw);
+                    JEditorPane jep = new JEditorPane("text/html", "<html>" + mes + "<hr/><p>" + sw.toString().
+                            replace(System.lineSeparator(),"<br/>") + "</p></html>");
+                    jep.setEditable(false);
+                    pw.close();
+                    JOptionPane.showMessageDialog(null, jep, "Ошибка", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
@@ -209,7 +221,30 @@ public class MainForm
         tableGameBoard.setRowSelectionAllowed(false);
         //tableGameBoard.setFillsViewportHeight(true);
         tableGameBoard.setShowGrid(true);
+        tableGameBoard.setFont(lbPlayerSymbol.getFont());
+        
+        class CenterColouredRenderer extends DefaultTableCellRenderer
+        {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column)
+            {
+                Component defaultRenderer = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                ((DefaultTableCellRenderer)defaultRenderer).setHorizontalAlignment(SwingConstants.CENTER);
+                if (value != null && value.toString().charAt(0) == GameState.X_SYMBOL)
+                {
+                    defaultRenderer.setForeground(lbPlayerSymbol.getForeground());
+                }
+                else
+                {
+                    defaultRenderer.setForeground(lbAISymbol.getForeground());
+                }
+                return defaultRenderer;
+            }
+        }
+        
+        tableGameBoard.setDefaultRenderer(Object.class, new CenterColouredRenderer());
         ((CrossGameTableModel)tableGameBoard.getModel()).setSize(GameState.DEFAULT_BOARD_SIZE);
+        tableGameBoard.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         boardSizeUpdated();
         lbAICaption.setMinimumSize(lbPlayerCaption.getSize());
         _mainFrame.pack();
@@ -285,6 +320,7 @@ public class MainForm
         // разрешаем таскать форму за любые не интерактивные элементы
         pMain.addMouseListener(this.mouseDownHandler);
         pMain.addMouseMotionListener(this.mouseDragHandler);
+        
         _mainFrame.addWindowListener(new WindowAdapter()
         {
             @Override
@@ -293,6 +329,8 @@ public class MainForm
                 actExitProgram.actionPerformed(new ActionEvent(_mainFrame, ActionEvent.ACTION_PERFORMED, null));
             }
         });
+        
+        tableGameBoard.addMouseListener(tableDoubleClickHandler);
         return this;
     }
     
@@ -329,7 +367,8 @@ public class MainForm
         @Override
         public void actionPerformed(ActionEvent e)
         {
-            final Object[] options = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL};
+            final Object[] options = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL, "Как в прошлый раз: '" +
+                    GameState.Current.getPlayerSymbol() + "'"};
             int res = -1;
             if (GameState.Current.isStarted())
             {
@@ -341,11 +380,15 @@ public class MainForm
                 }
             }
             GameState.Current.Reset();
-            res = JOptionPane.showOptionDialog((Component) e.getSource(), "Выберите сторону (\"X\" ходит первым!)",
+            res = JOptionPane.showOptionDialog(tableGameBoard, "Выберите сторону (\"X\" ходит первым!)",
                     "Выбор стороны", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null,
                     options, GameState.X_SYMBOL);
-            GameState.Current.setPlayerSymbol((char)options[res] == GameState.X_SYMBOL);
-            if (GameState.Current.isCpuTurn())
+            char answer = options[res].toString().charAt(0);
+            if (answer == GameState.X_SYMBOL || answer == GameState.ZERO_SYMBOL)
+            {
+                GameState.Current.setPlayerSymbol(answer == GameState.X_SYMBOL);
+            }
+            if (GameState.Current.getCpuSymbol() == GameState.X_SYMBOL)
             {
                 GameState.Current.makeCpuTurn();
             }
@@ -364,6 +407,66 @@ public class MainForm
                     "Выход из игры", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION)
             {
                 System.exit(0);
+            }
+        }
+    };
+    
+    /**
+     * Обработчик клика на ячейку - производит ход игрока, затем проверяет, остались ли ходы и делает ход ПК.
+     *
+     * @implNote  Обрабатывается именно двойной клик, т.к. с одиночным были проблемы - иногда просто выделялась ячейка,
+     *      но события клика не было.
+     * */
+    private final MouseListener tableDoubleClickHandler = new MouseAdapter()
+    {
+        @Override
+        public void mouseClicked(MouseEvent e)
+        {
+            super.mouseClicked(e);
+            if (e.getClickCount() < 2)
+            {
+                return;
+            }
+            if (!GameState.Current.isStarted())
+            {
+                int res = JOptionPane.showConfirmDialog(e.getComponent(), "Игра окончена - хотите начать новую?",
+                        "Новая игра", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
+                if (res == JOptionPane.YES_OPTION)
+                {
+                    actStartNewGame.actionPerformed(new ActionEvent(e.getSource(), ActionEvent.ACTION_PERFORMED, null));
+                }
+                return;
+            }
+            int rowIndex = tableGameBoard.getSelectedRow();
+            int colIndex = tableGameBoard.getSelectedColumn();
+            if (IS_DEBUG)
+            {
+                System.out.println("[" + rowIndex + "][" + colIndex + "] clicked");
+            }
+            if (!GameState.Current.checkCoords(rowIndex, colIndex))
+            {
+                JOptionPane.showMessageDialog(e.getComponent(), "Эта клетка уже занята - выберите другую!",
+                        "Этот ход невозможен", JOptionPane.WARNING_MESSAGE);
+            }
+            else
+            {
+                char ps = GameState.Current.getPlayerSymbol();
+                tableGameBoard.setValueAt(ps, rowIndex, colIndex);
+                if (GameState.Current.checkWin(ps, rowIndex, colIndex))
+                {
+                    JOptionPane.showMessageDialog(e.getComponent(), "Победил Игрок", "Игра окончена",
+                            JOptionPane.INFORMATION_MESSAGE);
+                }
+                else if (GameState.Current.noMoreMoves())
+                {
+                    JOptionPane.showMessageDialog(e.getComponent(), "Ничья - ходов больше нет!", "Игра окончена",
+                            JOptionPane.INFORMATION_MESSAGE);
+                }
+                else if (GameState.Current.makeCpuTurn())
+                {
+                    JOptionPane.showMessageDialog(e.getComponent(), "Победил ИИ", "Игра окончена",
+                            JOptionPane.INFORMATION_MESSAGE);
+                }
             }
         }
     };
@@ -540,6 +643,16 @@ public class MainForm
                     ab.setSelected(true);
                 }
             }
+        }
+        else if (e instanceof PlayerSymbolChangedEvent)
+        {
+            lbAISymbol.setText(String.valueOf(GameState.Current.getCpuSymbol()));
+            lbPlayerSymbol.setText(String.valueOf(GameState.Current.getPlayerSymbol()));
+        }
+        else if (e instanceof CpuTurnCompletedEvent)
+        {
+            CpuTurnCompletedEvent ctc =  ((CpuTurnCompletedEvent) e);
+            tableGameBoard.setValueAt(lbAISymbol.getText(), ctc.rowIndex, ctc.colIndex);
         }
     }
     
