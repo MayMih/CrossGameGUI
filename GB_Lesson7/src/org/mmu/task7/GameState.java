@@ -4,7 +4,7 @@ import org.mmu.task7.events.*;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 
 /**
  * Класс-синглтон текущего состояния игры
@@ -477,13 +477,13 @@ public final class GameState
      */
     private int getWinCellNumber(ArrayList<Integer> turnsHistory)
     {
-        /*class WinCellFinder
+        class WinCellFinder     // локальный класс - обёртка для повторяющейся "лямбды"
         {
-            int findWinCell(Stream<Integer> ideal, List<Integer> source)
+            int findWinCell(IntStream ideal, List<Integer> source)
             {
                 return ideal.filter(x -> checkCell(x) && !source.contains(x)).findFirst().orElse(-1);
             }
-        }*/
+        }
         
         int result = -1;
         if (turnsHistory == null || turnsHistory.size() <= 1)
@@ -495,6 +495,8 @@ public final class GameState
         ArrayList<Integer> checkedCols = new ArrayList<>();
         boolean isMainDiagChecked = false;
         boolean isAuxDiagChecked = false;
+        WinCellFinder cellFinder = new WinCellFinder();
+        
         for (Integer cellNumber : turnsHistory)
         {
             int rowNumber = Utils.getRowIndexFromCellNumber(cellNumber);
@@ -503,16 +505,18 @@ public final class GameState
                 continue;
             }
             // если до победы, например по строке, не хватает одной клетки и она пуста, то она и есть выигрышная
-            List<Integer> sameRowElements = turnsHistory.stream().filter(x -> Utils.convertCellNumberToCoords(x)[0] == rowNumber).
+            List<Integer> sameRowHistoryElements = turnsHistory.stream().filter(x -> Utils.convertCellNumberToCoords(x)[0] == rowNumber).
                     collect(Collectors.toList());
-            if (sameRowElements.size() == boardSize - 1)
+            if (sameRowHistoryElements.size() == boardSize - 1)
             {
-                Stream<Integer> idealRow = Stream.iterate(Utils.convertCoordsToCellNumber(rowNumber, 0), x ->
-                        x + 1).limit(boardSize);
-                result = idealRow.filter(x -> this.checkCell(x) && !sameRowElements.contains(x)).findFirst().orElse(-1);
-                if (result >= 0)
+                try (IntStream idealRow = IntStream.iterate(Utils.convertCoordsToCellNumber(rowNumber, 0),
+                    x -> x + 1).limit(boardSize))
                 {
-                    return result;
+                    result = cellFinder.findWinCell(idealRow, sameRowHistoryElements);
+                    if (result >= 0)
+                    {
+                        return result;
+                    }
                 }
             }
             int collNumber = Utils.getColumnIndexFromCellNumber(cellNumber);
@@ -520,48 +524,55 @@ public final class GameState
             {
                 continue;
             }
-            List<Integer> sameColElements = turnsHistory.stream().filter(x -> Utils.convertCellNumberToCoords(x)[1] == collNumber).
+            List<Integer> sameColHistoryElements = turnsHistory.stream().filter(x -> Utils.convertCellNumberToCoords(x)[1] == collNumber).
                     collect(Collectors.toList());
-            if (sameColElements.size() == boardSize - 1)
+            if (sameColHistoryElements.size() == boardSize - 1)
             {
-                Stream<Integer> idealColumn = Stream.iterate(Utils.convertCoordsToCellNumber(0, collNumber), x ->
-                        x + boardSize).limit(boardSize);
-                result = idealColumn.filter(x -> this.checkCell(x) && !sameColElements.contains(x)).findFirst().orElse(-1);
-                if (result >= 0)
+                try (IntStream idealColumn = IntStream.iterate(Utils.convertCoordsToCellNumber(0, collNumber),
+                        x -> x + boardSize).limit(boardSize))
                 {
-                    return result;
-                }
-            }
-            // если это элемент главной диагонали и её ещё не проверяли
-            if (collNumber == rowNumber && !isMainDiagChecked)
-            {
-                // Наблюдение: номера ячеек на главной диагонали отличаются на (N + 1)
-                List<Integer> mainDiagElements = turnsHistory.stream().filter(x -> Math.abs(x - cellNumber) % (boardSize + 1) == 0).
-                        collect(Collectors.toList());
-                if (mainDiagElements.size() == boardSize - 1)
-                {
-                    Stream<Integer> idealMainDiag = Stream.iterate(0, x -> x + boardSize + 1).limit(boardSize);
-                    result = idealMainDiag.filter(x -> this.checkCell(x) && !mainDiagElements.contains(x)).findFirst().orElse(-1);
+                    result = cellFinder.findWinCell(idealColumn, sameColHistoryElements);
                     if (result >= 0)
                     {
                         return result;
                     }
                 }
+            }
+            // если это элемент главной диагонали и её ещё не проверяли
+            if ((collNumber == rowNumber) && !isMainDiagChecked)
+            {
+                // Наблюдение: номера ячеек на главной диагонали отличаются на (N + 1)
+                List<Integer> mainDiagHistoryElements = turnsHistory.stream().filter(x -> Math.abs(x - cellNumber) % (boardSize + 1) == 0).
+                        collect(Collectors.toList());
+                if (mainDiagHistoryElements.size() == boardSize - 1)
+                {
+                    try (IntStream idealMainDiag = IntStream.iterate(0, x -> x + boardSize + 1).limit(boardSize))
+                    {
+                        result = cellFinder.findWinCell(idealMainDiag, mainDiagHistoryElements);
+                        if (result >= 0)
+                        {
+                            return result;
+                        }
+                    }
+                }
                 isMainDiagChecked = true;
             }
             // если это элемент побочной диагонали и её ещё не проверяли
-            if ((collNumber + rowNumber == boardSize - 1) && !isAuxDiagChecked)
+            if (((collNumber + rowNumber) == (boardSize - 1)) && !isAuxDiagChecked)
             {
-                // Наблюдение: номера ячеек на побочной диагонали отличаются на (N - 1)
-                List<Integer> auxDiagElements = turnsHistory.stream().filter(x -> Math.abs(x - cellNumber) % (boardSize - 1) == 0).
+                List<Integer> auxDiagHistoryElements = turnsHistory.stream().filter(x ->
+                        Utils.getRowIndexFromCellNumber(x) + Utils.getColumnIndexFromCellNumber(x) == (boardSize - 1)).
                         collect(Collectors.toList());
-                if (auxDiagElements.size() == boardSize - 1)
+                if (auxDiagHistoryElements.size() == boardSize - 1)
                 {
-                    Stream<Integer> idealAuxDiag = Stream.iterate(boardSize - 1, x -> x + boardSize - 1).limit(boardSize);
-                    result = idealAuxDiag.filter(x -> this.checkCell(x) && !auxDiagElements.contains(x)).findFirst().orElse(-1);
-                    if (result >= 0)
+                    // Наблюдение: номера ячеек на побочной диагонали отличаются на (N - 1)
+                    try (IntStream idealAuxDiag = IntStream.iterate(boardSize - 1, x -> x + boardSize - 1).limit(boardSize))
                     {
-                        return result;
+                        result = cellFinder.findWinCell(idealAuxDiag, auxDiagHistoryElements);
+                        if (result >= 0)
+                        {
+                            return result;
+                        }
                     }
                 }
                 isAuxDiagChecked = true;

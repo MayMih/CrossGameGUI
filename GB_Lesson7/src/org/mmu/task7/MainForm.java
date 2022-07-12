@@ -89,11 +89,16 @@ public class MainForm
      *  внешний "мир" (параметры запуска в консоли/файл настоек/переменные окружения и т.п.)
      * */
     static boolean IS_DEBUG;
+    
+    private static final Color BLUE_X_COLOR = new Color(0,92,231);
+    private static final Color RED_ZERO_COLOR = new Color(159,0,0);
     private static final String ABOUT_TEXT;
     private static final String ICON_FILE_RESOURCE_NAME = "/icons/interface57.png";
     private static final Skin DEFAULT_LOOK_AND_FEEL = Skin.FlatIdea;
     private static final String BOARD_SIZE_CAPTION_START = "Размер поля:";
     private static final Package _pkg;
+    private static final Object[] NEW_GAME_OPTIONS = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL, "<html>Как в прошлый раз: '<b>" +
+            GameState.Current.getPlayerSymbol() + "</b>'</html>"};
     
     private Point _mouseDownCursorPos;
     
@@ -233,11 +238,11 @@ public class MainForm
                 ((DefaultTableCellRenderer)defaultRenderer).setHorizontalAlignment(SwingConstants.CENTER);
                 if (value != null && value.toString().charAt(0) == GameState.X_SYMBOL)
                 {
-                    defaultRenderer.setForeground(lbPlayerSymbol.getForeground());
+                    defaultRenderer.setForeground(MainForm.BLUE_X_COLOR);
                 }
                 else
                 {
-                    defaultRenderer.setForeground(lbAISymbol.getForeground());
+                    defaultRenderer.setForeground(MainForm.RED_ZERO_COLOR);
                 }
                 return defaultRenderer;
             }
@@ -368,8 +373,6 @@ public class MainForm
         @Override
         public void actionPerformed(ActionEvent e)
         {
-            final Object[] options = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL, "<html>Как в прошлый раз: '<b>" +
-                    GameState.Current.getPlayerSymbol() + "</b>'</html>"};
             int res = -1;
             if (GameState.Current.isStarted())
             {
@@ -383,12 +386,12 @@ public class MainForm
             GameState.Current.Reset();
             res = JOptionPane.showOptionDialog(tableGameBoard, "<html>Выберите сторону ('<b>X</b>' ходит первым!)</html>",
                     "Начало игры", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null,
-                    options, GameState.X_SYMBOL);
+                    NEW_GAME_OPTIONS, GameState.X_SYMBOL);
             if (res < 0)
             {
-                res = options.length - 1;
+                res = NEW_GAME_OPTIONS.length - 1;
             }
-            char answer = options[res].toString().charAt(0);
+            char answer = NEW_GAME_OPTIONS[res].toString().charAt(0);
             if (answer == GameState.X_SYMBOL || answer == GameState.ZERO_SYMBOL)
             {
                 GameState.Current.setPlayerSymbol(answer == GameState.X_SYMBOL);
@@ -662,8 +665,11 @@ public class MainForm
         }
         else if (e instanceof PlayerSymbolChangedEvent)
         {
+            boolean isPlayerXSymbol = GameState.Current.getPlayerSymbol() == GameState.X_SYMBOL;
             lbAISymbol.setText(String.valueOf(GameState.Current.getCpuSymbol()));
             lbPlayerSymbol.setText(String.valueOf(GameState.Current.getPlayerSymbol()));
+            lbAISymbol.setForeground(isPlayerXSymbol ? RED_ZERO_COLOR : BLUE_X_COLOR);
+            lbPlayerSymbol.setForeground(isPlayerXSymbol ? BLUE_X_COLOR : RED_ZERO_COLOR);
         }
         else if (e instanceof CpuTurnCompletedEvent)
         {
