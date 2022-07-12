@@ -24,6 +24,7 @@
               <preferredScrollableViewportSize width="-1" height="-1"/>
               <showHorizontalLines value="true"/>
               <showVerticalLines value="true"/>
+              <toolTipText value="Двойной клик для хода"/>
               <updateSelectionOnSort value="false"/>
             </properties>
           </component>

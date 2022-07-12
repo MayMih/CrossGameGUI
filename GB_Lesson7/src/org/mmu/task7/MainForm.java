@@ -16,7 +16,6 @@ import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Objects;
-import java.util.Random;
 
 
 public class MainForm
@@ -25,7 +24,7 @@ public class MainForm
     /*
      * Модель данных для таблицы JTable
      * */
-    class CrossGameTableModel extends AbstractTableModel
+    static class CrossGameTableModel extends AbstractTableModel
     {
         @Override
         public int getRowCount()
@@ -79,7 +78,7 @@ public class MainForm
     private JLabel lbAICaption;
     private JLabel lbPlayerCaption;
     
-    private JFrame _mainFrame = new JFrame();
+    private final JFrame _mainFrame = new JFrame();
     private JMenuItem _miChangeBoardSize;
     private ButtonGroup _bgAI;
     
@@ -89,13 +88,12 @@ public class MainForm
      * @apiNote     TODO: раз в Java нет понятия отладочной сборки, то логичнее выводить управление этой константой во
      *  внешний "мир" (параметры запуска в консоли/файл настоек/переменные окружения и т.п.)
      * */
-    private static boolean IS_DEBUG;
+    static boolean IS_DEBUG;
     private static final String ABOUT_TEXT;
     private static final String ICON_FILE_RESOURCE_NAME = "/icons/interface57.png";
     private static final Skin DEFAULT_LOOK_AND_FEEL = Skin.FlatIdea;
     private static final String BOARD_SIZE_CAPTION_START = "Размер поля:";
     private static final Package _pkg;
-    private static final Random _rand = new Random();
     
     private Point _mouseDownCursorPos;
     
@@ -103,9 +101,8 @@ public class MainForm
     
     
     
-    /**
-     * Статический конструктор - задаёт текст окна "О программе"
-     * */
+    
+    // Статический инициализатор - задаёт текст окна "О программе" и локализацию для кнопок диалоговых окон {@link #javax.swing.JOptionPane}
     static
     {
         IS_DEBUG = false;
@@ -122,6 +119,8 @@ public class MainForm
         UIManager.put("OptionPane.cancelButtonText", "Отмена");
         UIManager.put("OptionPane.okButtonText"    , "ОК");
     }
+    
+    
     
     /**
      * Точка входа в программу - устанавливает скин GUI, создаёт главную форму игры
@@ -223,6 +222,8 @@ public class MainForm
         tableGameBoard.setShowGrid(true);
         tableGameBoard.setFont(lbPlayerSymbol.getFont());
         
+        // Собственный класс-отрисовщик ячеек - нужен для центровки текста и вывода разным цветом символов Игрока и ПК
+        //  - на основе кода отсюда: https://stackoverflow.com/a/35494391/2323972
         class CenterColouredRenderer extends DefaultTableCellRenderer
         {
             @Override
@@ -241,8 +242,8 @@ public class MainForm
                 return defaultRenderer;
             }
         }
-        
         tableGameBoard.setDefaultRenderer(Object.class, new CenterColouredRenderer());
+        
         ((CrossGameTableModel)tableGameBoard.getModel()).setSize(GameState.DEFAULT_BOARD_SIZE);
         tableGameBoard.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         boardSizeUpdated();
@@ -367,12 +368,12 @@ public class MainForm
         @Override
         public void actionPerformed(ActionEvent e)
         {
-            final Object[] options = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL, "Как в прошлый раз: '" +
-                    GameState.Current.getPlayerSymbol() + "'"};
+            final Object[] options = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL, "<html>Как в прошлый раз: '<b>" +
+                    GameState.Current.getPlayerSymbol() + "</b>'</html>"};
             int res = -1;
             if (GameState.Current.isStarted())
             {
-                res = JOptionPane.showConfirmDialog((Component) e.getSource(), "Вы уверены, что хотите начать игру сначала?",
+                res = JOptionPane.showConfirmDialog(_mainFrame, "Вы уверены, что хотите начать игру сначала?",
                         "Подтверждение", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
                 if (res != JOptionPane.OK_OPTION)
                 {
@@ -380,9 +381,13 @@ public class MainForm
                 }
             }
             GameState.Current.Reset();
-            res = JOptionPane.showOptionDialog(tableGameBoard, "Выберите сторону (\"X\" ходит первым!)",
-                    "Выбор стороны", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null,
+            res = JOptionPane.showOptionDialog(tableGameBoard, "<html>Выберите сторону ('<b>X</b>' ходит первым!)</html>",
+                    "Начало игры", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null,
                     options, GameState.X_SYMBOL);
+            if (res < 0)
+            {
+                res = options.length - 1;
+            }
             char answer = options[res].toString().charAt(0);
             if (answer == GameState.X_SYMBOL || answer == GameState.ZERO_SYMBOL)
             {
@@ -452,6 +457,11 @@ public class MainForm
             {
                 char ps = GameState.Current.getPlayerSymbol();
                 tableGameBoard.setValueAt(ps, rowIndex, colIndex);
+                GameState.Current.getPlayerTurnsHistory().add(GameState.Utils.convertCoordsToCellNumber(rowIndex, colIndex));
+                if (IS_DEBUG)
+                {
+                    GameState.Current.printBoard();
+                }
                 if (GameState.Current.checkWin(ps, rowIndex, colIndex))
                 {
                     JOptionPane.showMessageDialog(e.getComponent(), "Победил Игрок", "Игра окончена",
@@ -542,6 +552,10 @@ public class MainForm
         @Override
         public void itemStateChanged(ItemEvent e)
         {
+            if (IS_DEBUG)
+            {
+                System.out.println("RadioItemStateChanged");
+            }
             JMenuItem rb = (JMenuItem)e.getItemSelectable();
             AILevel lvl = Arrays.stream(AILevel.values()).filter(x -> x.description.equalsIgnoreCase(rb.getText())).
                     findAny().orElse(AILevel.Unknown);
@@ -570,6 +584,8 @@ public class MainForm
                 JMenuItem rb = (JMenuItem)e.getItemSelectable();
                 Skin skn = Skin.valueOf(rb.getText());
                 UIManager.setLookAndFeel(skn.getLAFClassPath());
+                // тут как всегда слетает ряд шрифтов (и не только) после применение скина
+                // TODO: запоминать шрифты (все?) и применять их снова после смены скина
                 SwingUtilities.updateComponentTreeUI(_mainFrame);
                 tableGameBoard.setShowGrid(true);
             }
