@@ -554,17 +554,18 @@ public class MainForm
         public void itemStateChanged(ItemEvent e)
         {
             JMenuItem rb = (JMenuItem)e.getItemSelectable();
-            if (IS_DEBUG)
+            
+            if (e.getStateChange() == ItemEvent.DESELECTED)
             {
-                if (e.getStateChange() == ItemEvent.DESELECTED)
+                if (IS_DEBUG)
                 {
                     System.out.println("Отключён уровень ИИ: " + rb.getText());
-                    return;
                 }
-                else
-                {
-                    System.out.println("Включён уровень ИИ: " + rb.getText());
-                }
+                return;
+            }
+            else if (IS_DEBUG)
+            {
+                System.out.println("Включён уровень ИИ: " + rb.getText());
             }
             AILevel lvl = Arrays.stream(AILevel.values()).filter(x -> x.description.equalsIgnoreCase(rb.getText())).
                     findAny().orElse(AILevel.Unknown);
