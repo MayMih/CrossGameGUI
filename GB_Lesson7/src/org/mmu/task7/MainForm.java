@@ -455,31 +455,29 @@ public class MainForm
             {
                 JOptionPane.showMessageDialog(e.getComponent(), "Эта клетка уже занята - выберите другую!",
                         "Этот ход невозможен", JOptionPane.WARNING_MESSAGE);
+                return;
             }
-            else
+            char ps = GameState.Current.getPlayerSymbol();
+            tableGameBoard.setValueAt(ps, rowIndex, colIndex);
+            GameState.Current.getPlayerTurnsHistory().add(GameState.Utils.convertCoordsToCellNumber(rowIndex, colIndex));
+            if (IS_DEBUG)
             {
-                char ps = GameState.Current.getPlayerSymbol();
-                tableGameBoard.setValueAt(ps, rowIndex, colIndex);
-                GameState.Current.getPlayerTurnsHistory().add(GameState.Utils.convertCoordsToCellNumber(rowIndex, colIndex));
-                if (IS_DEBUG)
-                {
-                    GameState.Current.printBoard();
-                }
-                if (GameState.Current.checkWin(ps, rowIndex, colIndex))
-                {
-                    JOptionPane.showMessageDialog(e.getComponent(), "Победил Игрок", "Игра окончена",
-                            JOptionPane.INFORMATION_MESSAGE);
-                }
-                else if (GameState.Current.noMoreMoves())
-                {
-                    JOptionPane.showMessageDialog(e.getComponent(), "Ничья - ходов больше нет!", "Игра окончена",
-                            JOptionPane.INFORMATION_MESSAGE);
-                }
-                else if (GameState.Current.makeCpuTurn())
-                {
-                    JOptionPane.showMessageDialog(e.getComponent(), "Победил ИИ", "Игра окончена",
-                            JOptionPane.INFORMATION_MESSAGE);
-                }
+                GameState.Current.printBoard();
+            }
+            if (GameState.Current.checkWin(ps, rowIndex, colIndex))
+            {
+                JOptionPane.showMessageDialog(e.getComponent(), "Победил Игрок", "Игра окончена",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
+            else if (GameState.Current.noMoreMoves())
+            {
+                JOptionPane.showMessageDialog(e.getComponent(), "Ничья - ходов больше нет!", "Игра окончена",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
+            else if (GameState.Current.makeCpuTurn())
+            {
+                JOptionPane.showMessageDialog(e.getComponent(), "Победил ИИ", "Игра окончена",
+                        JOptionPane.INFORMATION_MESSAGE);
             }
         }
     };
@@ -555,11 +553,19 @@ public class MainForm
         @Override
         public void itemStateChanged(ItemEvent e)
         {
+            JMenuItem rb = (JMenuItem)e.getItemSelectable();
             if (IS_DEBUG)
             {
-                System.out.println("RadioItemStateChanged");
+                if (e.getStateChange() == ItemEvent.DESELECTED)
+                {
+                    System.out.println("Отключён уровень ИИ: " + rb.getText());
+                    return;
+                }
+                else
+                {
+                    System.out.println("Включён уровень ИИ: " + rb.getText());
+                }
             }
-            JMenuItem rb = (JMenuItem)e.getItemSelectable();
             AILevel lvl = Arrays.stream(AILevel.values()).filter(x -> x.description.equalsIgnoreCase(rb.getText())).
                     findAny().orElse(AILevel.Unknown);
             if (lvl == AILevel.Unknown && !IS_DEBUG)
