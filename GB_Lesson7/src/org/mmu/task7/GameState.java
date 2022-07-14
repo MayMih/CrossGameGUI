@@ -69,6 +69,7 @@ public final class GameState
         
         private NormalAI() {}
         
+        @Override
         public int generateCellNumber()
         {
             return generateCellNumber(true);
@@ -239,6 +240,7 @@ public final class GameState
     
         private BelowNormalAI() {}
         
+        @Override
         public int generateCellNumber()
         {
             return NormalAI.instance.generateCellNumber(false);
@@ -254,6 +256,7 @@ public final class GameState
     
         private LowAI() {}
         
+        @Override
         public int generateCellNumber()
         {
             return generateNearbyCoords(false);
@@ -273,35 +276,56 @@ public final class GameState
             else
             {
                 boolean isCoordsValid = false;
-                // сначала пытаемся сгенерировать соседнюю точку
-                for (int i = 0; (i <= Current.getCpuTurnsHistory().size()) && !isCoordsValid; i++)
+                ArrayList<Integer> futureCpuTurnsHistory = null;
+                
+                if (isCheckWinAbility)
                 {
-                    // выбираем случайную опорную точку, относительно которой будем пытаться делать ход
-                    int baseTurnCellNumber = Current.getCpuTurnsHistory().get(_rand.nextInt(Current.getCpuTurnsHistory().size()));
+                    futureCpuTurnsHistory = new ArrayList<>(Current.getCpuTurnsHistory());
+                }
+                
+                // сначала пытаемся сгенерировать соседнюю точку
+                
+                for (int baseTurnCellNumber : Current.getCpuTurnsHistory())
+                {
+                    // получаем опорную точку, относительно которой будем пытаться делать ход
                     rowIndex = baseTurnCellNumber / Current.boardSize;
                     colIndex = baseTurnCellNumber % Current.boardSize;
-                    if (!Current.noMoreMovesInRegion(rowIndex - 1, colIndex - 1))
+                    List<Integer> freeCells = Current.getEmptyCellsInRegion(rowIndex - 1, colIndex - 1);
+                    if (freeCells.isEmpty())
                     {
-                        do
+                        continue;
+                    }
+                    //TODO: подумать над оптимизацией - сейчас происходит множество лишних итераций, т.к. обе к-ты изменяются случайным образом
+                    do
+                    {
+                        // генерируем случайный коэффициент от (-1) до 1 для получения соседних координат
+                        rowIndex = Utils.getRowIndexFromCellNumber(baseTurnCellNumber) - 1 + _rand.nextInt(3);
+                        colIndex = Utils.getColumnIndexFromCellNumber(baseTurnCellNumber) - 1 + _rand.nextInt(3);
+                        isCoordsValid = Current.checkCoords(rowIndex, colIndex);
+                        if (isCoordsValid)
                         {
-                            // генерируем случайный коэффициент от (-1) до 1 для получения соседних координат
-                            rowIndex += -1 + _rand.nextInt(3);
-                            colIndex += -1 + _rand.nextInt(3);
-                            isCoordsValid = Current.checkCoords(rowIndex, colIndex);
-                            if (isCoordsValid)
+                            cellNumber = Utils.convertCoordsToCellNumber(rowIndex, colIndex);
+                            if (isCheckWinAbility)
                             {
-                                cellNumber = Utils.convertCoordsToCellNumber(rowIndex, colIndex);
-                            }
-                            else
-                            {
-                                rowIndex = Utils.getRowIndexFromCellNumber(baseTurnCellNumber);
-                                colIndex = Utils.getColumnIndexFromCellNumber(baseTurnCellNumber);
+                                futureCpuTurnsHistory.add(cellNumber);
+                                //TODO: метод получения выигрышной клетки будет хорошо работать только для поля 3 х 3, т.к. здесь любая соседняя клетка
+                                //  с большой вероятностью будет создавать выигрышную серию - для больших полей нужен другой метод оценки полезности хода!
+                                int winCell = NormalAI.instance.getWinCellNumber(futureCpuTurnsHistory);
+                                if (winCell >= 0)
+                                {
+                                    return winCell;
+                                }
+                                else
+                                {
+                                    freeCells.remove(cellNumber);
+                                    futureCpuTurnsHistory.remove(cellNumber);
+                                }
                             }
                         }
-                        while (!isCoordsValid);
                     }
+                    while (!isCoordsValid && !freeCells.isEmpty());
                 }
-                // если же походить в соседнюю клетку не выходит (видимо они заняты), то делаем случайный ход
+                // если же походить в соседнюю клетку не выходит (видимо все они заняты), то делаем случайный ход
                 if (!isCoordsValid)
                 {
                     cellNumber = StupidAI.instance.generateRandomEmptyCellCoords();
@@ -323,6 +347,7 @@ public final class GameState
         /**
          * Синоним метода {@link #generateRandomEmptyCellCoords()}
          */
+        @Override
         public int generateCellNumber()
         {
             return generateRandomEmptyCellCoords();
@@ -425,8 +450,8 @@ public final class GameState
     }
     
     /**
-     * Устанавливает желаемый уровень ИИ
-     * @param aiLevel
+     * Сеттер уровня ИИ
+     * @param aiLevel   Желаемый уровень ИИ
      * @exception IllegalArgumentException При неизвестном уровне ИИ
      */
     public synchronized void setAiLevel(AILevel aiLevel)
@@ -560,7 +585,7 @@ public final class GameState
     {
         if (_listeners == null)
         {
-            _listeners = new ArrayList<GameStateChangedEventListener>();
+            _listeners = new ArrayList<>();
             _listeners.add(listener);
         }
         else if (!_listeners.contains(listener))
@@ -641,7 +666,7 @@ public final class GameState
      */
     private void initBoard()
     {
-        for (char row[] : gameBoard)
+        for (char[] row : gameBoard)
         {
             Arrays.fill(row, EMPTY_CELL_SYMBOL);
         }
@@ -779,7 +804,7 @@ public final class GameState
     public boolean makeCpuTurn()
     {
         // генерация координат хода ИИ
-        int cellNumber = -1, rowIndex = 0, colIndex = 0;
+        int cellNumber, rowIndex, colIndex;
         if (getAiEngine() == null)
         {
             // при неизвестном уровне интеллекта - пропуск хода ("мозг отсутствует")
@@ -795,41 +820,6 @@ public final class GameState
         gameBoard[rowIndex][colIndex] = cpuSymbol;
         fireGameStateChangedEvent(new CpuTurnCompletedEvent(this, rowIndex, colIndex, boardSize));
         return checkWin(cpuSymbol, rowIndex, colIndex);
-    }
-
-    /**
-     * Метод хода Игрока
-     *
-     * @return Возвращает True, если обнаружена победа Игрока
-     *
-     * @throws IllegalArgumentException  Выбрасывается, если ячейка уже занята
-     * @throws IndexOutOfBoundsException Выбрасывается, если ячейка не существует - находится за границами поля
-     * @implNote Сбрасывает признак запуска игры {@link #isStarted()}, если победил Игрок. Записывает ход в историю {@link #getPlayerTurnsHistory()}
-     */
-    private boolean makePlayerTurn(int rowIndex, int colIndex) throws IllegalArgumentException, IndexOutOfBoundsException
-    {
-        if (gameBoard[rowIndex][colIndex] != EMPTY_CELL_SYMBOL)
-        {
-            String mes = "Обнаружена попытка сделать недопустимый ход - ячейка [" + rowIndex + "][" + colIndex + "] уже занята!";
-            if (IS_DEBUG)
-            {
-                System.err.println(mes);
-            }
-            throw new IllegalArgumentException(mes);
-        }
-        else if (rowIndex < 0 || colIndex < 0 || rowIndex >= gameBoard.length || colIndex >= gameBoard.length)
-        {
-            String mes = "Обнаружена попытка сделать недопустимый ход - ячейка [" + rowIndex + "][" + colIndex + "] не существует!";
-            if (IS_DEBUG)
-            {
-                System.err.println(mes);
-            }
-            throw new IndexOutOfBoundsException(mes);
-        }
-        gameBoard[rowIndex][colIndex] = playerSymbol;
-        getPlayerTurnsHistory().add(Utils.convertCoordsToCellNumber(rowIndex, colIndex));
-        isStarted = !checkWin(playerSymbol, rowIndex, colIndex);
-        return !isStarted;
     }
     
     /**
@@ -862,8 +852,9 @@ public final class GameState
      */
     public boolean checkCell(int cellNumber)
     {
-        int[] coordsToCheck = Utils.convertCellNumberToCoords(cellNumber);
-        return checkCoords(coordsToCheck[0], coordsToCheck[1]);
+        int rowIndex = Utils.getRowIndexFromCellNumber(cellNumber);
+        int colIndex = Utils.getColumnIndexFromCellNumber(cellNumber);
+        return checkCoords(rowIndex, colIndex);
     }
     
     /**
@@ -890,16 +881,51 @@ public final class GameState
         {
             if (IS_DEBUG)
             {
-                System.out.println("Эта клетка уже занята - ход невозможен!");
+                System.out.printf("Эта клетка (%d; %d) уже занята - ход невозможен!%n", rowIndex, columnIndex);
             }
             return false;
         }
     }
     
     /**
+     * Метод получения списка пустых клеток указанном в регионе (3 Х 3 относительно указанного начала координат)
+     * */
+    private List<Integer> getEmptyCellsInRegion(int minX, int minY)
+    {
+        ArrayList<Integer> result = new ArrayList<>();
+        for (int i = minX; (i < minX + 3) && (i < boardSize); i++)
+        {
+            if (i < 0)
+            {
+                continue;
+            }
+            for (int j = minY; (j < minY + 3) && (j < boardSize); j++)
+            {
+                if (j < 0)
+                {
+                    continue;
+                }
+                if (gameBoard[i][j] == EMPTY_CELL_SYMBOL)
+                {
+                    result.add(Utils.convertCoordsToCellNumber(i, j));
+                }
+            }
+        }
+        return result;
+    }
+    
+    /**
      * Метод проверки доступных клеток в регионе (3 Х 3 относительно указанного начала координат)
      * */
     private boolean noMoreMovesInRegion(int minX, int minY)
+    {
+        return noMoreMovesInRegion(minX, minY, null);
+    }
+    /**
+     * Метод проверки доступных клеток в регионе (3 Х 3 относительно указанного начала координат)
+     * @param ignoredCells Список клеток, которые нужно игнорировать
+     * */
+    private boolean noMoreMovesInRegion(int minX, int minY, List<Integer> ignoredCells)
     {
         for (int i = minX; (i < minX + 3) && (i < boardSize); i++)
         {
@@ -915,6 +941,10 @@ public final class GameState
                 }
                 if (gameBoard[i][j] == EMPTY_CELL_SYMBOL)
                 {
+                    if (ignoredCells != null && ignoredCells.contains(Utils.convertCoordsToCellNumber(i, j)))
+                    {
+                        continue;
+                    }
                     return false;
                 }
             }

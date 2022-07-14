@@ -124,9 +124,7 @@ public class MainForm
         UIManager.put("OptionPane.cancelButtonText", "Отмена");
         UIManager.put("OptionPane.okButtonText"    , "ОК");
     }
-    
-    
-    
+
     /**
      * Точка входа в программу - устанавливает скин GUI, создаёт главную форму игры
      * */
