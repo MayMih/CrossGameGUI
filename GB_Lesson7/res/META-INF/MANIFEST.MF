@@ -1,8 +1,8 @@
 Manifest-Version: 1.0
 Main-Class: org.mmu.task7.MainForm
-Class-Path: lib/flatlaf-2.0.1.jar
+Class-Path: lib/flatlaf-2.3.jar
 Specification-Version: 1.0
 Created-By: Маюров Михаил Юрьевич
 Specification-Title: Игра "Крестики-нолики"
 Specification-Vendor: Маюров Михаил Юрьевич
-Implementation-Title: "# \"Крестики-нолики"\"
+Implementation-Title: # "Крестики-нолики"

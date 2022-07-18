@@ -1,0 +1,13 @@
+<component name="ArtifactManager">
+  <artifact name="GB_Lesson7:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/GB_Lesson7_jar</output-path>
+    <root id="root">
+      <element id="archive" name="GB_Lesson7.jar">
+        <element id="module-output" name="GB_Lesson7" />
+      </element>
+      <element id="directory" name="lib">
+        <element id="library" level="project" name="flatlaf-2.3" />
+      </element>
+    </root>
+  </artifact>
+</component>

@@ -13,6 +13,10 @@ import static org.mmu.task7.MainForm.IS_DEBUG;
  * */
 public final class GameState
 {
+    public boolean isPlayerMovesFirst()
+    {
+        return playerSymbol == X_SYMBOL;
+    }
     
     //region 'Типы данных'
     
@@ -268,70 +272,51 @@ public final class GameState
          */
         private int generateNearbyCoords(boolean isCheckWinAbility)
         {
-            int rowIndex, colIndex, cellNumber = -1;
             if (Current.getCpuTurnsHistory().isEmpty())
             {
-                cellNumber = StupidAI.instance.generateRandomEmptyCellCoords();
+                return StupidAI.instance.generateRandomEmptyCellCoords();
             }
-            else
+            ArrayList<Integer> futureCpuTurnsHistory = null;
+            
+            if (isCheckWinAbility)
             {
-                boolean isCoordsValid = false;
-                ArrayList<Integer> futureCpuTurnsHistory = null;
-                
-                if (isCheckWinAbility)
+                futureCpuTurnsHistory = new ArrayList<>(Current.getCpuTurnsHistory());
+            }
+            // сначала пытаемся сгенерировать соседнюю точку
+            int resultCell = -1;
+            for (Integer baseTurnCellNumber : Current.getCpuTurnsHistory())
+            {
+                // получаем опорную точку, относительно которой будем пытаться делать ход
+                List<Integer> freeCells = Current.getEmptyCellsInRegion(baseTurnCellNumber);
+                if (!isCheckWinAbility && !freeCells.isEmpty())
                 {
-                    futureCpuTurnsHistory = new ArrayList<>(Current.getCpuTurnsHistory());
+                    return freeCells.get(0);    // если проверка полезности хода не требуется, то возвращаем первую попавшуюся соседнюю клетку
                 }
-                
-                // сначала пытаемся сгенерировать соседнюю точку
-                
-                for (int baseTurnCellNumber : Current.getCpuTurnsHistory())
+                // ищем наиболее оптимальный ход (который может в дальнейшем привести к победе)
+                for (Integer emptyCell : freeCells)
                 {
-                    // получаем опорную точку, относительно которой будем пытаться делать ход
-                    rowIndex = baseTurnCellNumber / Current.boardSize;
-                    colIndex = baseTurnCellNumber % Current.boardSize;
-                    List<Integer> freeCells = Current.getEmptyCellsInRegion(rowIndex - 1, colIndex - 1);
-                    if (freeCells.isEmpty())
+                    resultCell = emptyCell;                     // запоминаем пустую соседнюю клетку-кандидат, т.к. более полезных может и не быть
+                    futureCpuTurnsHistory.add(emptyCell);
+                    //TODO: метод получения выигрышной клетки будет хорошо работать только для поля 3 х 3, т.к. здесь любая соседняя клетка
+                    //  с большой вероятностью будет создавать выигрышную серию - для больших полей нужен другой метод оценки полезности хода!!
+                    int winCell = NormalAI.instance.getWinCellNumber(futureCpuTurnsHistory);
+                    if (winCell >= 0)
                     {
-                        continue;
+                        return winCell;     // для игры 3 х 3 возврат несоседней потенциально выигрышной клетки выглядит даже лучше (хитрее), но для
+                                            // больших досок нужно возвращать соседнюю, либо случайную клетку из выигрышной линии!
                     }
-                    //TODO: подумать над оптимизацией - сейчас происходит множество лишних итераций, т.к. обе к-ты изменяются случайным образом
-                    do
+                    else
                     {
-                        // генерируем случайный коэффициент от (-1) до 1 для получения соседних координат
-                        rowIndex = Utils.getRowIndexFromCellNumber(baseTurnCellNumber) - 1 + _rand.nextInt(3);
-                        colIndex = Utils.getColumnIndexFromCellNumber(baseTurnCellNumber) - 1 + _rand.nextInt(3);
-                        isCoordsValid = Current.checkCoords(rowIndex, colIndex);
-                        if (isCoordsValid)
-                        {
-                            cellNumber = Utils.convertCoordsToCellNumber(rowIndex, colIndex);
-                            if (isCheckWinAbility)
-                            {
-                                futureCpuTurnsHistory.add(cellNumber);
-                                //TODO: метод получения выигрышной клетки будет хорошо работать только для поля 3 х 3, т.к. здесь любая соседняя клетка
-                                //  с большой вероятностью будет создавать выигрышную серию - для больших полей нужен другой метод оценки полезности хода!
-                                int winCell = NormalAI.instance.getWinCellNumber(futureCpuTurnsHistory);
-                                if (winCell >= 0)
-                                {
-                                    return winCell;
-                                }
-                                else
-                                {
-                                    freeCells.remove(cellNumber);
-                                    futureCpuTurnsHistory.remove(cellNumber);
-                                }
-                            }
-                        }
+                        futureCpuTurnsHistory.remove(emptyCell);
                     }
-                    while (!isCoordsValid && !freeCells.isEmpty());
-                }
-                // если же походить в соседнюю клетку не выходит (видимо все они заняты), то делаем случайный ход
-                if (!isCoordsValid)
-                {
-                    cellNumber = StupidAI.instance.generateRandomEmptyCellCoords();
                 }
             }
-            return cellNumber;
+            // если же походить в соседнюю клетку не смогли (видимо все они заняты), то делаем случайный ход
+            if (resultCell == -1)
+            {
+                return StupidAI.instance.generateRandomEmptyCellCoords();
+            }
+            return resultCell;
         }
     }
     
@@ -377,15 +362,14 @@ public final class GameState
     
     //region 'Поля и константы'
     
-    public static final char X_SYMBOL = 'X', ZERO_SYMBOL = 'O';
+    public static final char X_SYMBOL = 'X', ZERO_SYMBOL = 'O', EMPTY_CELL_SYMBOL = ' ';
     public static final int DEFAULT_BOARD_SIZE = 3;
     public static final GameState Current = new GameState();
     
     // ?! Похоже в Java статические поля инициализируется ПОСЛЕ полей экземпляра ?!
     private static final Random _rand = new Random();
-    private static final char EMPTY_CELL_SYMBOL = ' ';  //'□';
     
-    private final AILevel DEFAULT_AI_LEVEL = AILevel.BelowNormal;
+    private final AILevel DEFAULT_AI_LEVEL = AILevel.Normal;
     private AILevel aiLevel = DEFAULT_AI_LEVEL;
     private char playerSymbol = X_SYMBOL, cpuSymbol = ZERO_SYMBOL;
     private char[][] gameBoard = new char[DEFAULT_BOARD_SIZE][DEFAULT_BOARD_SIZE];
@@ -534,7 +518,7 @@ public final class GameState
         return cpuSymbol;
     }
     
-    private synchronized ArrayList<Integer> getCpuTurnsHistory()
+    public synchronized ArrayList<Integer> getCpuTurnsHistory()
     {
         if (cpuTurnsHistory == null)
         {
@@ -888,18 +872,27 @@ public final class GameState
     }
     
     /**
-     * Метод получения списка пустых клеток указанном в регионе (3 Х 3 относительно указанного начала координат)
+     * Метод получения списка пустых клеток указанном в регионе (3 Х 3 относительно указанной клетки)
      * */
-    private List<Integer> getEmptyCellsInRegion(int minX, int minY)
+    private List<Integer> getEmptyCellsInRegion(int cellNumber)
+    {
+        return getEmptyCellsInRegion(cellNumber / boardSize, cellNumber % boardSize);
+    }
+    /**
+     * Метод получения списка пустых клеток указанном в регионе (3 Х 3 относительно указанных координат)
+     * */
+    private List<Integer> getEmptyCellsInRegion(int rowNumber, int colNumber)
     {
         ArrayList<Integer> result = new ArrayList<>();
-        for (int i = minX; (i < minX + 3) && (i < boardSize); i++)
+        int minRowNumber = rowNumber - 1;
+        int minColNumber = colNumber - 1;
+        for (int i = minRowNumber; (i < minRowNumber + 3) && (i < boardSize); i++)
         {
             if (i < 0)
             {
                 continue;
             }
-            for (int j = minY; (j < minY + 3) && (j < boardSize); j++)
+            for (int j = minColNumber; (j < minColNumber + 3) && (j < boardSize); j++)
             {
                 if (j < 0)
                 {
@@ -917,23 +910,23 @@ public final class GameState
     /**
      * Метод проверки доступных клеток в регионе (3 Х 3 относительно указанного начала координат)
      * */
-    private boolean noMoreMovesInRegion(int minX, int minY)
+    private boolean noMoreMovesInRegion(int minRowIndex, int minColIndex)
     {
-        return noMoreMovesInRegion(minX, minY, null);
+        return noMoreMovesInRegion(minRowIndex, minColIndex, null);
     }
     /**
      * Метод проверки доступных клеток в регионе (3 Х 3 относительно указанного начала координат)
      * @param ignoredCells Список клеток, которые нужно игнорировать
      * */
-    private boolean noMoreMovesInRegion(int minX, int minY, List<Integer> ignoredCells)
+    private boolean noMoreMovesInRegion(int minRowIndex, int minColIndex, List<Integer> ignoredCells)
     {
-        for (int i = minX; (i < minX + 3) && (i < boardSize); i++)
+        for (int i = minRowIndex; (i < minRowIndex + 3) && (i < boardSize); i++)
         {
             if (i < 0)
             {
                 continue;
             }
-            for (int j = minY; (j < minY + 3) && (j < boardSize); j++)
+            for (int j = minColIndex; (j < minColIndex + 3) && (j < boardSize); j++)
             {
                 if (j < 0)
                 {

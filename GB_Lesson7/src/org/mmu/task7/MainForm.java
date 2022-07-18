@@ -15,6 +15,7 @@ import java.io.StringWriter;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Objects;
 
 
@@ -65,6 +66,11 @@ public class MainForm
         public void setSize(int newSize)
         {
             GameState.Current.setBoardSize(newSize);
+        }
+    
+        public void clearCell(int cellNumber)
+        {
+            GameState.Current.setSymbolAt(cellNumber, GameState.EMPTY_CELL_SYMBOL);
         }
     }
     
@@ -167,14 +173,7 @@ public class MainForm
                     e.printStackTrace();
                     JFrame.setDefaultLookAndFeelDecorated(true);
                 }
-                // Создаём нашу игровую фому и навешиваем на неё обработчики событий
-                try
-                {
-                    MainForm mf = new MainForm().setActionListeners();
-                    mf.actStartNewGame.actionPerformed(new ActionEvent(mf._mainFrame, ActionEvent.ACTION_PERFORMED, null));
-                }
-                catch (Exception ex)
-                {
+                Thread.setDefaultUncaughtExceptionHandler(((t, ex) -> {
                     String mes = MessageFormat.format("Неожиданная ошибка программы \"{1}\"{0}{2}",
                             System.lineSeparator(), MainForm.class.getName(), ex.toString());
                     System.err.println(mes);
@@ -188,7 +187,10 @@ public class MainForm
                     jep.setEditable(false);
                     pw.close();
                     JOptionPane.showMessageDialog(null, jep, "Ошибка", JOptionPane.ERROR_MESSAGE);
-                }
+                }));
+                // Создаём нашу игровую фому и навешиваем на неё обработчики событий
+                MainForm mf = new MainForm().setActionListeners();
+                mf.actStartNewGame.actionPerformed(new ActionEvent(mf._mainFrame, ActionEvent.ACTION_PERFORMED, null));
             }
         });
     }
@@ -267,6 +269,32 @@ public class MainForm
         JMenu mGame = new JMenu("Игра");
         mGame.add(actStartNewGame);
         mGame.add(actExitProgram);
+        if (IS_DEBUG)
+        {
+            mGame.add(new AbstractAction("Отменить ход (игрока и ПК)")
+            {
+                @Override
+                public void actionPerformed(ActionEvent e)
+                {
+                    List<Integer> history = GameState.Current.getPlayerTurnsHistory();
+                    if (history.isEmpty())
+                    {
+                        JOptionPane.showMessageDialog(tableGameBoard, "Игрок ещё не делал ходов - нечего отменять!",
+                                "Отказ", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                    CrossGameTableModel tm = ((CrossGameTableModel)tableGameBoard.getModel());
+                    tm.clearCell(history.remove(history.size() - 1));
+                    history = GameState.Current.getCpuTurnsHistory();
+                    if (!history.isEmpty())
+                    {
+                        tm.clearCell(history.remove(history.size() - 1));
+                    }
+                    JOptionPane.showMessageDialog(tableGameBoard, "Можете сделать новый ход!", "Ход отменён",
+                            JOptionPane.INFORMATION_MESSAGE);
+                }
+            });
+        }
         miniBar.add(mGame);
         JMenu mOptions = new JMenu("Опции");
         miniBar.add(mOptions);
