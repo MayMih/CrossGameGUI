@@ -1,9 +1,9 @@
 package org.mmu.task7;
 
+import org.mmu.task7.aiengine.*;
 import org.mmu.task7.events.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.mmu.task7.MainForm.IS_DEBUG;
@@ -18,12 +18,8 @@ public final class GameState
         return playerSymbol == X_SYMBOL;
     }
     
-    //region 'Типы данных'
     
-    private interface AICellNumberGenerator
-    {
-        int generateCellNumber();
-    }
+    //region 'Типы данных'
     
     /**
      * Событие изменения состояния Игры
@@ -36,327 +32,83 @@ public final class GameState
     /**
      * Вспомогательный класс с методами для преобразования номера строки и столбца в номер ячейки и наоборот
      */
-    static final class Utils
+    public static final class Utils
     {
-        static int[] convertCellNumberToCoords(int number)
-        {
-            return new int[] { number / Current.boardSize, number % Current.boardSize };
-        }
-        
-        static int convertCoordsToCellNumber(int rowIndex, int columnIndex)
-        {
-            return rowIndex * Current.boardSize + columnIndex;
-        }
-        
-        static int getRowIndexFromCellNumber(int cellNumber)
-        {
-            return cellNumber / Current.boardSize;
-        }
-    
-        static int getColumnIndexFromCellNumber(int cellNumber)
-        {
-            return cellNumber % Current.boardSize;
-        }
-        
         // прячем конструктор от внешнего кода, т.к. в Java можно создавать
         // экземпляры вложенных статических классов! То, что класс помечен спецификатором static, в данном случае значит
         // лишь то, что его экземпляры могут быть созданы Без создания экземпляра класса-родителя (GameState)
         private Utils() {}
-    }
-    
-    /**
-     * Класс "Среднего" ИИ - ходит по соседним клеткам стараясь выиграть, а когда до выигрыша ИИ или Игрока остаётся один ход, то выбирает его.
-     */
-    private static final class NormalAI implements AICellNumberGenerator
-    {
-        public static final NormalAI instance = new NormalAI();
         
-        private NormalAI() {}
-        
-        @Override
-        public int generateCellNumber()
+        public static int[] convertCellNumberToCoords(int number)
         {
-            return generateCellNumber(true);
+            return new int[] { number / Current.boardSize, number % Current.boardSize };
         }
         
-        /**
-         * Метод генерации к-т клетки для текущего хода ПК
-         * @param isCheckNearbyCellWinAbility Определяет, будут ли к-ты соседней клетки проверяться на возможность выигрыша,
-         *                                    False - будет проверяться только возможность выигрыша текущим ходом ИИ или Игрока.
-         */
-        private int generateCellNumber(boolean isCheckNearbyCellWinAbility)
+        public static int convertCoordsToCellNumber(int rowIndex, int columnIndex)
         {
-            int cellNumber;
-            cellNumber = getCpuWinCellNumber();
-            if (cellNumber < 0)
-            {
-                cellNumber = getPlayerWinCellNumber();
-            }
-            if (cellNumber < 0)
-            {
-                cellNumber = LowAI.instance.generateNearbyCoords(isCheckNearbyCellWinAbility);
-            }
-            return cellNumber;
+            return rowIndex * Current.boardSize + columnIndex;
+        }
+        
+        public static int getRowIndexFromCellNumber(int cellNumber)
+        {
+            return cellNumber / Current.boardSize;
+        }
+    
+        public static int getColumnIndexFromCellNumber(int cellNumber)
+        {
+            return cellNumber % Current.boardSize;
         }
     
         /**
-         * Метод поиска выигрышной ячейки
-         *
-         * @param turnsHistory - История ходов (ПК либо Игрока)
+         * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
+         * @param rowNumber Координата выигрышной строки, которую нужно сгенерировать
+         * @return Идеальный набор ячеек
+         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
-        private int getWinCellNumber(ArrayList<Integer> turnsHistory)
+        public static IntStream getIdealRow(int rowNumber)
         {
-            class WinCellFinder     // локальный класс - обёртка для повторяющейся "лямбды"
-            {
-                int findWinCell(IntStream ideal, List<Integer> source)
-                {
-                    return ideal.filter(x -> Current.checkCell(x) && !source.contains(x)).findFirst().orElse(-1);
-                }
-            }
-        
-            int result = -1;
-            if (turnsHistory == null || turnsHistory.size() <= 1)
-            {
-                return result;
-            }
-            // для каждого эл-та из Истории считаем кол-во клеток, не хватающих до победы
-            ArrayList<Integer> checkedRows = new ArrayList<>();
-            ArrayList<Integer> checkedCols = new ArrayList<>();
-            boolean isMainDiagChecked = false;
-            boolean isAuxDiagChecked = false;
-            WinCellFinder cellFinder = new WinCellFinder();
-            final int boardsize = Current.boardSize;
-        
-            for (Integer cellNumber : turnsHistory)
-            {
-                int rowNumber = Utils.getRowIndexFromCellNumber(cellNumber);
-                if (checkedRows.contains(rowNumber))
-                {
-                    continue;
-                }
-                // если до победы, например по строке, не хватает одной клетки и она пуста, то она и есть выигрышная
-                List<Integer> sameRowHistoryElements = turnsHistory.stream().filter(x -> Utils.convertCellNumberToCoords(x)[0] == rowNumber).
-                        collect(Collectors.toList());
-                if (sameRowHistoryElements.size() == boardsize - 1)
-                {
-                    try (IntStream idealRow = IntStream.iterate(Utils.convertCoordsToCellNumber(rowNumber, 0),
-                            x -> x + 1).limit(boardsize))
-                    {
-                        result = cellFinder.findWinCell(idealRow, sameRowHistoryElements);
-                        if (result >= 0)
-                        {
-                            return result;
-                        }
-                    }
-                }
-                int collNumber = Utils.getColumnIndexFromCellNumber(cellNumber);
-                if (checkedCols.contains(collNumber))
-                {
-                    continue;
-                }
-                List<Integer> sameColHistoryElements = turnsHistory.stream().filter(x -> Utils.convertCellNumberToCoords(x)[1] == collNumber).
-                        collect(Collectors.toList());
-                if (sameColHistoryElements.size() == boardsize - 1)
-                {
-                    try (IntStream idealColumn = IntStream.iterate(Utils.convertCoordsToCellNumber(0, collNumber),
-                            x -> x + Current.boardSize).limit(Current.boardSize))
-                    {
-                        result = cellFinder.findWinCell(idealColumn, sameColHistoryElements);
-                        if (result >= 0)
-                        {
-                            return result;
-                        }
-                    }
-                }
-                // если это элемент главной диагонали и её ещё не проверяли
-                if ((collNumber == rowNumber) && !isMainDiagChecked)
-                {
-                    // Наблюдение: номера ячеек на главной диагонали отличаются на (N + 1)
-                    List<Integer> mainDiagHistoryElements = turnsHistory.stream().filter(x -> Math.abs(x - cellNumber) % (boardsize + 1) == 0).
-                            collect(Collectors.toList());
-                    if (mainDiagHistoryElements.size() == boardsize - 1)
-                    {
-                        try (IntStream idealMainDiag = IntStream.iterate(0, x -> x + boardsize + 1).limit(boardsize))
-                        {
-                            result = cellFinder.findWinCell(idealMainDiag, mainDiagHistoryElements);
-                            if (result >= 0)
-                            {
-                                return result;
-                            }
-                        }
-                    }
-                    isMainDiagChecked = true;
-                }
-                // если это элемент побочной диагонали и её ещё не проверяли
-                if (((collNumber + rowNumber) == (boardsize - 1)) && !isAuxDiagChecked)
-                {
-                    List<Integer> auxDiagHistoryElements = turnsHistory.stream().filter(x ->
-                                    Utils.getRowIndexFromCellNumber(x) + Utils.getColumnIndexFromCellNumber(x) == (boardsize - 1)).
-                            collect(Collectors.toList());
-                    if (auxDiagHistoryElements.size() == boardsize - 1)
-                    {
-                        // Наблюдение: номера ячеек на побочной диагонали отличаются на (N - 1)
-                        try (IntStream idealAuxDiag = IntStream.iterate(boardsize - 1, x -> x + boardsize - 1).limit(boardsize))
-                        {
-                            result = cellFinder.findWinCell(idealAuxDiag, auxDiagHistoryElements);
-                            if (result >= 0)
-                            {
-                                return result;
-                            }
-                        }
-                    }
-                    isAuxDiagChecked = true;
-                }
-                checkedRows.add(rowNumber);
-                checkedCols.add(collNumber);
-            }
-            return -1;
+            return IntStream.iterate(convertCoordsToCellNumber(rowNumber, 0), x -> x + 1).limit(Current.getBoardSize());
         }
     
         /**
-         * Проверяет, не может ли ПК выиграть своим следующим ходом, если ДА - возвращает номер одной из выигрышных клеток.
-         *
-         * @return Номер выигрышной клетки или (-1), если таких клеток нет.
+         * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
+         * @param collNumber Координата выигрышного столбца, который нужно сгенерировать
+         * @return Идеальный набор ячеек
+         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
-        private int getCpuWinCellNumber()
+        public static IntStream getIdealColumn(int collNumber)
         {
-            return getWinCellNumber(Current.getCpuTurnsHistory());
+            final int board_size = Current.boardSize;
+            return IntStream.iterate(convertCoordsToCellNumber(0, collNumber), x -> x + board_size).limit(board_size);
         }
     
         /**
-         * Проверяет, не может ли Игрок выиграть своим следующим ходом, если ДА - возвращает номер одной из выигрышных клеток.
-         *
-         * @return Номер выигрышной клетки или (-1), если таких клеток нет.
+         * Метод получения идеального набора ячеек, приводящего к победе по главной диагонали, содержащей указанную ячейку
+         * @return Идеальный набор ячеек
+         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
-        private int getPlayerWinCellNumber()
+        public static IntStream getIdealMainDiag()
         {
-            return getWinCellNumber(Current.getPlayerTurnsHistory());
+            final int board_size = Current.boardSize;
+            // Наблюдение: номера ячеек на главной диагонали отличаются на (N + 1)
+            return IntStream.iterate(0, x -> x + board_size + 1).limit(board_size);
         }
     
-    }
-    
-    /**
-     * Класс ИИ "Ниже Среднего" - ходит по соседним клеткам Не стараясь выиграть, Но когда до выигрыша ИИ или Игрока остаётся один ход, то выбирает его.
-     */
-    private static final class BelowNormalAI implements AICellNumberGenerator
-    {
-        public static final BelowNormalAI instance = new BelowNormalAI();
-    
-        private BelowNormalAI() {}
-        
-        @Override
-        public int generateCellNumber()
-        {
-            return NormalAI.instance.generateCellNumber(false);
-        }
-    }
-    
-    /**
-     * Класс "Низкого" ИИ - ходит по соседним клеткам, не учитывая больше никаких условий.
-     */
-    private static final class LowAI implements AICellNumberGenerator
-    {
-        public static final LowAI instance = new LowAI();
-    
-        private LowAI() {}
-        
-        @Override
-        public int generateCellNumber()
-        {
-            return generateNearbyCoords(false);
-        }
-        
         /**
-         * Генерирует номер клетки соседней с одной из имеющихся у ПК, если таких нет, то случайные координаты пустой клетки
-         * @param isCheckWinAbility Определяет, будут ли сгенерированные к-ты проверяться на их полезность для выигрыша (True)
+         * Метод получения идеального набора ячеек, приводящего к победе по побочной диагонали, содержащей указанную ячейку
+         * @return Идеальный набор ячеек
+         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
-        private int generateNearbyCoords(boolean isCheckWinAbility)
+        public static IntStream getIdealAuxDiag()
         {
-            if (Current.getCpuTurnsHistory().isEmpty())
-            {
-                return StupidAI.instance.generateRandomEmptyCellCoords();
-            }
-            ArrayList<Integer> futureCpuTurnsHistory = null;
-            
-            if (isCheckWinAbility)
-            {
-                futureCpuTurnsHistory = new ArrayList<>(Current.getCpuTurnsHistory());
-            }
-            // сначала пытаемся сгенерировать соседнюю точку
-            int resultCell = -1;
-            for (Integer baseTurnCellNumber : Current.getCpuTurnsHistory())
-            {
-                // получаем опорную точку, относительно которой будем пытаться делать ход
-                List<Integer> freeCells = Current.getEmptyCellsInRegion(baseTurnCellNumber);
-                if (!isCheckWinAbility && !freeCells.isEmpty())
-                {
-                    return freeCells.get(0);    // если проверка полезности хода не требуется, то возвращаем первую попавшуюся соседнюю клетку
-                }
-                // ищем наиболее оптимальный ход (который может в дальнейшем привести к победе)
-                for (Integer emptyCell : freeCells)
-                {
-                    resultCell = emptyCell;                     // запоминаем пустую соседнюю клетку-кандидат, т.к. более полезных может и не быть
-                    futureCpuTurnsHistory.add(emptyCell);
-                    //TODO: метод получения выигрышной клетки будет хорошо работать только для поля 3 х 3, т.к. здесь любая соседняя клетка
-                    //  с большой вероятностью будет создавать выигрышную серию - для больших полей нужен другой метод оценки полезности хода!!
-                    int winCell = NormalAI.instance.getWinCellNumber(futureCpuTurnsHistory);
-                    if (winCell >= 0)
-                    {
-                        return winCell;     // для игры 3 х 3 возврат несоседней потенциально выигрышной клетки выглядит даже лучше (хитрее), но для
-                                            // больших досок нужно возвращать соседнюю, либо случайную клетку из выигрышной линии!
-                    }
-                    else
-                    {
-                        futureCpuTurnsHistory.remove(emptyCell);
-                    }
-                }
-            }
-            // если же походить в соседнюю клетку не смогли (видимо все они заняты), то делаем случайный ход
-            if (resultCell == -1)
-            {
-                return StupidAI.instance.generateRandomEmptyCellCoords();
-            }
-            return resultCell;
-        }
-    }
-    
-    /**
-     * Класс очень "Тупого" ИИ - ходит по случайным пустым клеткам на поле
-     */
-    private static final class StupidAI implements AICellNumberGenerator
-    {
-        public static final StupidAI instance = new StupidAI();
-    
-        private StupidAI() {}
-        
-        /**
-         * Синоним метода {@link #generateRandomEmptyCellCoords()}
-         */
-        @Override
-        public int generateCellNumber()
-        {
-            return generateRandomEmptyCellCoords();
-        }
-        
-        /**
-         * Метод генерации случайной пары "подходящих" координат
-         *
-         * @return Номер ячейки в квадратной таблице
-         */
-        private int generateRandomEmptyCellCoords()
-        {
-            int rowIndex, colIndex;
-            do
-            {
-                rowIndex = _rand.nextInt(Current.boardSize);
-                colIndex = _rand.nextInt(Current.boardSize);
-            }
-            while (!Current.checkCoords(rowIndex, colIndex));
-            return Utils.convertCoordsToCellNumber(rowIndex, colIndex);
+            final int board_size = Current.boardSize;
+            // Наблюдение: номера ячеек на побочной диагонали отличаются на (N - 1)
+            return IntStream.iterate(board_size - 1, x -> x + board_size - 1).limit(board_size);
         }
     }
     
     //endregion 'Типы данных'
+    
     
     
     
@@ -365,11 +117,11 @@ public final class GameState
     public static final char X_SYMBOL = 'X', ZERO_SYMBOL = 'O', EMPTY_CELL_SYMBOL = ' ';
     public static final int DEFAULT_BOARD_SIZE = 3;
     public static final GameState Current = new GameState();
-    
     // ?! Похоже в Java статические поля инициализируется ПОСЛЕ полей экземпляра ?!
-    private static final Random _rand = new Random();
+    public static final Random rand = new Random();
     
     private final AILevel DEFAULT_AI_LEVEL = AILevel.Normal;
+    
     private AILevel aiLevel = DEFAULT_AI_LEVEL;
     private char playerSymbol = X_SYMBOL, cpuSymbol = ZERO_SYMBOL;
     private char[][] gameBoard = new char[DEFAULT_BOARD_SIZE][DEFAULT_BOARD_SIZE];
@@ -874,7 +626,7 @@ public final class GameState
     /**
      * Метод получения списка пустых клеток указанном в регионе (3 Х 3 относительно указанной клетки)
      * */
-    private List<Integer> getEmptyCellsInRegion(int cellNumber)
+    public List<Integer> getEmptyCellsInRegion(int cellNumber)
     {
         return getEmptyCellsInRegion(cellNumber / boardSize, cellNumber % boardSize);
     }
@@ -956,8 +708,8 @@ public final class GameState
         {
             for (int j = -1; j < boardSize; j++)
             {
-                //TODO: Разобраться - почему-то без {@code String#valueOf} печатается код символа вместо него самого -
-                // видимо специфика неявного преобразования символов в строку в Java
+                // Внимание: без {@code String#valueOf} печатается код символа вместо него самого -
+                // это специфика неявного преобразования символов в строку в Java
                 System.out.printf(" %s ", (i < 0 && j < 0) ? " " : (i < 0 ? j + 1 : (j < 0 ? i + 1 : String.valueOf(gameBoard[i][j]))));
             }
             System.out.println();
