@@ -61,6 +61,16 @@ public final class GameState
     
         /**
          * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
+         * @param cellNumber Номер выигрышной строки, которую нужно сгенерировать
+         * @return Идеальный набор ячеек
+         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
+         */
+        public static IntStream getIdealRow(Integer cellNumber)
+        {
+            return getIdealRow(getRowIndexFromCellNumber(cellNumber));
+        }
+        /**
+         * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
          * @param rowNumber Координата выигрышной строки, которую нужно сгенерировать
          * @return Идеальный набор ячеек
          * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
@@ -105,6 +115,39 @@ public final class GameState
             // Наблюдение: номера ячеек на побочной диагонали отличаются на (N - 1)
             return IntStream.iterate(board_size - 1, x -> x + board_size - 1).limit(board_size);
         }
+        
+        public static boolean isSameRowCells(int cellA, int cellB)
+        {
+            return getRowIndexFromCellNumber(cellA) == getColumnIndexFromCellNumber(cellB);
+        }
+    
+        /**
+         * Метод проверки того, являются ли клетки <b>родственными</b>, т.е. есть ли у них совпадающие к-ты строки или столбца
+         * @param cellA
+         * @param cellB
+         * @return
+         */
+        public static boolean isSiblingRowCells(int cellA, int cellB)
+        {
+            int[] c1 = convertCellNumberToCoords(cellA);
+            int[] c2 = convertCellNumberToCoords(cellB);
+            return c1[0] == c2[0] || c1[1] == c2[1];
+        }
+    
+        public static boolean isSameColCells(Integer cellA, Integer cellB)
+        {
+            return getColumnIndexFromCellNumber(cellA) == getColumnIndexFromCellNumber(cellB);
+        }
+    
+        public static boolean isMainDiagCoords(int rowNumber, int colNumber)
+        {
+            return colNumber == rowNumber;
+        }
+    
+        public static boolean isAuxDiagCoords(int rowNumber, int colNumber)
+        {
+            return (colNumber + rowNumber) == (Current.boardSize - 1);
+        }
     }
     
     //endregion 'Типы данных'
@@ -120,7 +163,7 @@ public final class GameState
     // ?! Похоже в Java статические поля инициализируется ПОСЛЕ полей экземпляра ?!
     public static final Random rand = new Random();
     
-    private final AILevel DEFAULT_AI_LEVEL = AILevel.Normal;
+    private final AILevel DEFAULT_AI_LEVEL = AILevel.AboveNormal;
     
     private AILevel aiLevel = DEFAULT_AI_LEVEL;
     private char playerSymbol = X_SYMBOL, cpuSymbol = ZERO_SYMBOL;
@@ -215,6 +258,11 @@ public final class GameState
                 case Normal:
                 {
                     aiEngine = NormalAI.instance;
+                    break;
+                }
+                case AboveNormal:
+                {
+                    aiEngine = AboveNormalAI.instance;
                     break;
                 }
                 case Unknown:
@@ -486,6 +534,16 @@ public final class GameState
      * @apiNote Устанавливает {@link #isStarted()}
      * @implNote сканирует только одну строку и столбец и возможно одну из диагоналей
      */
+    private boolean checkWin(char symbol, int cellNumber)
+    {
+        return checkWin(symbol, Utils.getRowIndexFromCellNumber(cellNumber), Utils.getColumnIndexFromCellNumber(cellNumber));
+    }
+    /**
+     * Метод проверки признака победы (оптимизированная версия)
+     *
+     * @apiNote Устанавливает {@link #isStarted()}
+     * @implNote сканирует только одну строку и столбец и возможно одну из диагоналей
+     */
     public boolean checkWin(char targetSymbol, int rowIndex, int colIndex)
     {
         boolean isWinFound = false;
@@ -540,22 +598,22 @@ public final class GameState
     public boolean makeCpuTurn()
     {
         // генерация координат хода ИИ
-        int cellNumber, rowIndex, colIndex;
         if (getAiEngine() == null)
         {
             // при неизвестном уровне интеллекта - пропуск хода ("мозг отсутствует")
             System.out.printf("DEBUG: CPU opponent turned off (current AI Level: %s )%n", getAiLevel());
             return false;
         }
-        cellNumber = getAiEngine().generateCellNumber();
+        int cellNumber = getAiEngine().generateCellNumber();
         // Хотя это действие нужно только для сложных уровней ИИ, но, если Игрок захочет изменить уровень сложности, то
         //  к этому моменту нужно будет иметь историю ходов ПК.
         getCpuTurnsHistory().add(cellNumber);
-        rowIndex = Utils.getRowIndexFromCellNumber(cellNumber);
-        colIndex = Utils.getColumnIndexFromCellNumber(cellNumber);
-        gameBoard[rowIndex][colIndex] = cpuSymbol;
-        fireGameStateChangedEvent(new CpuTurnCompletedEvent(this, rowIndex, colIndex, boardSize));
-        return checkWin(cpuSymbol, rowIndex, colIndex);
+        setSymbolAt(cellNumber, cpuSymbol);
+//        rowIndex = Utils.getRowIndexFromCellNumber(cellNumber);
+//        colIndex = Utils.getColumnIndexFromCellNumber(cellNumber);
+//        gameBoard[rowIndex][colIndex] = cpuSymbol;
+        fireGameStateChangedEvent(new CpuTurnCompletedEvent(this, cellNumber, boardSize));
+        return checkWin(cpuSymbol, cellNumber);
     }
     
     /**

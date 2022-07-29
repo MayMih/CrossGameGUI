@@ -14,6 +14,6 @@ public final class BelowNormalAI implements AICellNumberGenerator
     @Override
     public int generateCellNumber()
     {
-        return NormalAI.instance.generateCellNumber(false);
+        return NormalAI.instance.generateCellNumber(false, false);
     }
 }

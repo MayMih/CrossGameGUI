@@ -2,13 +2,13 @@ package org.mmu.task7.aiengine;
 
 import org.mmu.task7.GameState;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Класс "Среднего" ИИ - ходит по соседним клеткам стараясь выиграть, а когда до выигрыша ИИ или Игрока остаётся один ход, то выбирает его.
+ * Класс "Среднего" ИИ - ходит по клеткам линии, стараясь выиграть, а когда до выигрыша ИИ или Игрока остаётся один ход,
+ *      то выбирает его.
  */
 public final class NormalAI implements AICellNumberGenerator
 {
@@ -21,7 +21,7 @@ public final class NormalAI implements AICellNumberGenerator
     @Override
     public int generateCellNumber()
     {
-        return generateCellNumber(true);
+        return generateCellNumber(true, false);
     }
     
     /**
@@ -29,20 +29,133 @@ public final class NormalAI implements AICellNumberGenerator
      *
      * @param isCheckNearbyCellWinAbility Определяет, будут ли к-ты соседней клетки проверяться на возможность выигрыша,
      *                                    False - будет проверяться только возможность выигрыша текущим ходом ИИ или Игрока.
+     * @param isCheckMultilineWinCell Определяет, будет ли производиться поиск ячеек выигрышных
+     *                                сразу по нескольким линиям (True) или только по одной (False)
      */
-    int generateCellNumber(boolean isCheckNearbyCellWinAbility)
+    int generateCellNumber(boolean isCheckNearbyCellWinAbility, boolean isCheckMultilineWinCell)
     {
+        Map.Entry<Integer, Integer> ratedCellNumber;
         int cellNumber;
-        cellNumber = getCpuWinCellNumber();
-        if (cellNumber < 0)
+        if (!isCheckMultilineWinCell && GameState.Current.getBoardSize() <= 3)
+        {
+            cellNumber = getCpuWinCellNumber();
+            if (cellNumber >= 0)
+            {
+                return cellNumber;
+            }
+            ratedCellNumber = new AbstractMap.SimpleEntry<>(cellNumber, 1);
+        }
+        else
+        {
+            ratedCellNumber = this.getBestCell(isCheckMultilineWinCell);
+        }
+        if (ratedCellNumber.getKey() < 0 || ratedCellNumber.getValue() > 1)   // если клетка НЕ победная, то проверяем игрока
         {
             cellNumber = getPlayerWinCellNumber();
+            if (cellNumber >= 0)
+            {
+                return cellNumber;
+            }
+            ratedCellNumber = new AbstractMap.SimpleEntry<>(cellNumber, 1);
         }
-        if (cellNumber < 0)
+        if (ratedCellNumber.getKey() < 0)
         {
-            cellNumber = LowAI.instance.generateNearbyCoords(isCheckNearbyCellWinAbility);
+            return LowAI.instance.generateNearbyCoords(isCheckNearbyCellWinAbility);
         }
-        return cellNumber;
+        else
+        {
+            return ratedCellNumber.getKey();
+        }
+    }
+    
+    /**
+     * Метод получения ячейки с наиболее выгодным ходом (для победы ИИ)
+     *
+     * @param isGetMultilineWinCell Определяет, будет ли производиться поиск ячейки, которая может дать выигрыш сразу по
+     *                          нескольким линиям (True) или первой попавшейся, дающей выигрыш по линии (False).
+     *
+     * @implNote Учитывает ситуацию, когда клетка сразу участвует в победных строке и столбце
+     * @return Пара (номер ячейки, рейтинг), где, чем меньше <b>рейтинг</b>, тем лучше: "1" - один шаг до победы
+     */
+    AbstractMap.SimpleEntry<Integer, Integer> getBestCell(boolean isGetMultilineWinCell)
+    {
+        class AvailableTurnsAnalyzer
+        {
+            private final List<Integer> availableTurns = new ArrayList<>();
+            private final List<Integer> cpuHistory = GameState.Current.getCpuTurnsHistory();
+            // Ключ - номер свободной ячейки, Значение - кол-во свободных ячеек в строке/ряду/диагонали
+            public final List<Map.Entry<Integer, Integer>> ratedTurns = new ArrayList<>();
+            
+            private void updateTurnsAndScore(IntStream ideal)
+            {
+                availableTurns.clear();
+                availableTurns.addAll(ideal.boxed().collect(Collectors.toList()));
+                availableTurns.stream().filter(x -> !cpuHistory.contains(x)).findAny().ifPresent(x ->
+                        ratedTurns.add(new AbstractMap.SimpleEntry<>(x, availableTurns.size()))
+                );
+            }
+        }
+    
+        final List<Integer> playerTurns = GameState.Current.getPlayerTurnsHistory();
+        final ArrayList<Integer> checkedRows = new ArrayList<>();
+        final ArrayList<Integer> checkedCols = new ArrayList<>();
+        final AvailableTurnsAnalyzer turnsAnalyzer = new AvailableTurnsAnalyzer();
+        
+        boolean isMainDiagChecked = false;
+        boolean isAuxDiagChecked = false;
+        
+        for (int i = 0; i < GameState.Current.getBoardSize(); i++)
+        {
+            if (!GameState.Current.checkCell(i))
+            {
+                continue;
+            }
+            final int rowNumber = GameState.Utils.getRowIndexFromCellNumber(i);
+            // пытаемся получить случайную клетку из потенциально выигрышной строки
+            if (!checkedRows.contains(rowNumber) && GameState.Utils.getIdealRow(i).noneMatch(playerTurns::contains))
+            {
+                turnsAnalyzer.updateTurnsAndScore(GameState.Utils.getIdealRow(i));
+                checkedRows.add(rowNumber);
+            }
+            final int colNumber = GameState.Utils.getColumnIndexFromCellNumber(i);
+            // пытаемся получить случайную клетку из потенциально выигрышного столбца
+            if (!checkedCols.contains(colNumber) && GameState.Utils.getIdealColumn(i).noneMatch(playerTurns::contains))
+            {
+                turnsAnalyzer.updateTurnsAndScore(GameState.Utils.getIdealColumn(i));
+                checkedCols.add(colNumber);
+            }
+            if (!isMainDiagChecked && GameState.Utils.isMainDiagCoords(rowNumber, colNumber) && GameState.Utils.
+                    getIdealMainDiag().noneMatch(playerTurns::contains))
+            {
+                turnsAnalyzer.updateTurnsAndScore(GameState.Utils.getIdealMainDiag());
+                isMainDiagChecked = true;
+            }
+            if (!isAuxDiagChecked && GameState.Utils.isAuxDiagCoords(rowNumber, colNumber) && GameState.Utils.
+                    getIdealAuxDiag().noneMatch(playerTurns::contains))
+            {
+                turnsAnalyzer.updateTurnsAndScore(GameState.Utils.getIdealAuxDiag());
+                isAuxDiagChecked = true;
+            }
+        }
+        // выбираем из списка доступных ходов ту клетку, которая имеет наименьшее кол-во пустых клеток на линии
+        Optional<Map.Entry<Integer, Integer>> opt = turnsAnalyzer.ratedTurns.stream().min(Map.Entry.comparingByValue());
+//                Comparator.comparingInt(
+//                Map.Entry::getValue));
+        int minValue = opt.isPresent() ? opt.get().getValue() : -1;
+        if (isGetMultilineWinCell)
+        {
+            // выбираем из списка записи с минимальным рейтингом и ищем среди них тот номер клетки, что встречается
+            // наибольшее число раз
+            Optional<Integer> optCellNumber = turnsAnalyzer.ratedTurns.stream().filter(x -> x.getValue().equals(minValue)).
+                    collect(Collectors.groupingBy(Map.Entry::getKey)).entrySet().stream().max(Comparator.comparingInt(x ->
+                            x.getValue().size())).map(Map.Entry::getKey);
+    
+            return new AbstractMap.SimpleEntry<>(optCellNumber.orElse(-1), minValue);
+        }
+        else
+        {
+            return new AbstractMap.SimpleEntry<>(opt.isPresent() ? opt.get().getKey() : -1, minValue);
+        }
     }
     
     /**
