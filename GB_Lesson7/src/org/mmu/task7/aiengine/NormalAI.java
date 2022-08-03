@@ -34,32 +34,33 @@ public final class NormalAI implements AICellNumberGenerator
      */
     int generateCellNumber(boolean isCheckNearbyCellWinAbility, boolean isCheckMultilineWinCell)
     {
-        Map.Entry<Integer, Integer> ratedCellNumber;
+        Map.Entry<Integer, Long> ratedCellNumber;
         int cellNumber;
-        if (!isCheckMultilineWinCell && GameState.Current.getBoardSize() <= 3)
+        if (!isCheckMultilineWinCell && GameState.current.getBoardSize() <= 3)   //"упрощённый" алгоритм для малого поля
         {
             cellNumber = getCpuWinCellNumber();
             if (cellNumber >= 0)
             {
                 return cellNumber;
             }
-            ratedCellNumber = new AbstractMap.SimpleEntry<>(cellNumber, 1);
+            ratedCellNumber = new AbstractMap.SimpleEntry<>(cellNumber, 1L);
         }
         else
         {
-            ratedCellNumber = this.getBestCell(isCheckMultilineWinCell);
+            ratedCellNumber = getBestCell(isCheckMultilineWinCell);        // для полей 4х4 и более нужен подсчёт очков клетки
         }
-        if (ratedCellNumber.getKey() < 0 || ratedCellNumber.getValue() > 1)   // если клетка НЕ победная, то проверяем игрока
+        if (ratedCellNumber.getKey() < 0 || ratedCellNumber.getValue() > 1)   //если клетка НЕ победная, то проверяем игрока
         {
             cellNumber = getPlayerWinCellNumber();
             if (cellNumber >= 0)
             {
                 return cellNumber;
             }
-            ratedCellNumber = new AbstractMap.SimpleEntry<>(cellNumber, 1);
         }
+        // подводим итоги: если не удалось найти выигрышную (или потенциально выигрышную для 4х4]) клетку, то генерируем соседнюю
         if (ratedCellNumber.getKey() < 0)
         {
+            //assert GameState.current.getBoardSize() <= 3 : "Избыточный поиск соседних координат"; // возможно, если нет истории ходов
             return LowAI.instance.generateNearbyCoords(isCheckNearbyCellWinAbility);
         }
         else
@@ -75,73 +76,88 @@ public final class NormalAI implements AICellNumberGenerator
      *                          нескольким линиям (True) или первой попавшейся, дающей выигрыш по линии (False).
      *
      * @implNote Учитывает ситуацию, когда клетка сразу участвует в победных строке и столбце
+     *
      * @return Пара (номер ячейки, рейтинг), где, чем меньше <b>рейтинг</b>, тем лучше: "1" - один шаг до победы
+     *          ИЛИ (-1), если нет истории ходов ПК.
      */
-    AbstractMap.SimpleEntry<Integer, Integer> getBestCell(boolean isGetMultilineWinCell)
+    AbstractMap.SimpleEntry<Integer, Long> getBestCell(boolean isGetMultilineWinCell)
     {
+        final List<Integer> cpuHistory = GameState.current.getCpuTurnsHistory();
+        if (cpuHistory.isEmpty())
+        {
+            return new AbstractMap.SimpleEntry<>(-1, -1L);
+        }
+    
         class AvailableTurnsAnalyzer
         {
             private final List<Integer> availableTurns = new ArrayList<>();
-            private final List<Integer> cpuHistory = GameState.Current.getCpuTurnsHistory();
-            // Ключ - номер свободной ячейки, Значение - кол-во свободных ячеек в строке/ряду/диагонали
-            public final List<Map.Entry<Integer, Integer>> ratedTurns = new ArrayList<>();
-            
-            private void updateTurnsAndScore(IntStream ideal)
+            // Ключ - номер свободной ячейки, Значение - кол-во свободных ячеек в строке/ряду/диагонали (содержит повторения)
+            public final List<Map.Entry<Integer, Long>> ratedTurns = new ArrayList<>();
+        
+            private void updateTurnsAndScore(int cellNumber, IntStream ideal)
             {
                 availableTurns.clear();
                 availableTurns.addAll(ideal.boxed().collect(Collectors.toList()));
-                availableTurns.stream().filter(x -> !cpuHistory.contains(x)).findAny().ifPresent(x ->
-                        ratedTurns.add(new AbstractMap.SimpleEntry<>(x, availableTurns.size()))
-                );
+                long emptyCellsCount = availableTurns.stream().filter(x -> !cpuHistory.contains(x)).count();
+                if (emptyCellsCount > 0)
+                {
+                    ratedTurns.add(new AbstractMap.SimpleEntry<>(cellNumber, emptyCellsCount));
+                }
+//                availableTurns.stream().filter(x -> !cpuHistory.contains(x)).findAny().ifPresent(x ->
+//                    ratedTurns.add(new AbstractMap.SimpleEntry<>(x, availableTurns.size()))
+//                );
             }
         }
-    
-        final List<Integer> playerTurns = GameState.Current.getPlayerTurnsHistory();
+        
+        final List<Integer> playerTurns = GameState.current.getPlayerTurnsHistory();
         final ArrayList<Integer> checkedRows = new ArrayList<>();
         final ArrayList<Integer> checkedCols = new ArrayList<>();
         final AvailableTurnsAnalyzer turnsAnalyzer = new AvailableTurnsAnalyzer();
+        final int boardSize = GameState.current.getBoardSize();
         
-        boolean isMainDiagChecked = false;
-        boolean isAuxDiagChecked = false;
+        boolean isMainDiagChecked = GameState.Utils.getIdealMainDiag().noneMatch(playerTurns::contains);
+        boolean isAuxDiagChecked = GameState.Utils.getIdealAuxDiag().noneMatch(playerTurns::contains);
         
-        for (int i = 0; i < GameState.Current.getBoardSize(); i++)
+        for (int i = 0; i < boardSize * boardSize; i++)
         {
-            if (!GameState.Current.checkCell(i))
+            if (!GameState.current.checkCell(i))
             {
                 continue;
             }
             final int rowNumber = GameState.Utils.getRowIndexFromCellNumber(i);
             // пытаемся получить случайную клетку из потенциально выигрышной строки
-            if (!checkedRows.contains(rowNumber) && GameState.Utils.getIdealRow(i).noneMatch(playerTurns::contains))
+            if (!checkedRows.contains(rowNumber))
             {
-                turnsAnalyzer.updateTurnsAndScore(GameState.Utils.getIdealRow(i));
+                if (GameState.Utils.getIdealRow(i).noneMatch(playerTurns::contains))
+                {
+                    turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealRow(i));
+                }
                 checkedRows.add(rowNumber);
             }
             final int colNumber = GameState.Utils.getColumnIndexFromCellNumber(i);
             // пытаемся получить случайную клетку из потенциально выигрышного столбца
-            if (!checkedCols.contains(colNumber) && GameState.Utils.getIdealColumn(i).noneMatch(playerTurns::contains))
+            if (!checkedCols.contains(colNumber))
             {
-                turnsAnalyzer.updateTurnsAndScore(GameState.Utils.getIdealColumn(i));
+                if (GameState.Utils.getIdealColumn(i).noneMatch(playerTurns::contains))
+                {
+                    turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealColumn(i));
+                }
                 checkedCols.add(colNumber);
             }
-            if (!isMainDiagChecked && GameState.Utils.isMainDiagCoords(rowNumber, colNumber) && GameState.Utils.
-                    getIdealMainDiag().noneMatch(playerTurns::contains))
+            if (!isMainDiagChecked && GameState.Utils.isMainDiagCoords(rowNumber, colNumber))
             {
-                turnsAnalyzer.updateTurnsAndScore(GameState.Utils.getIdealMainDiag());
+                turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealMainDiag());
                 isMainDiagChecked = true;
             }
-            if (!isAuxDiagChecked && GameState.Utils.isAuxDiagCoords(rowNumber, colNumber) && GameState.Utils.
-                    getIdealAuxDiag().noneMatch(playerTurns::contains))
+            if (!isAuxDiagChecked && GameState.Utils.isAuxDiagCoords(rowNumber, colNumber))
             {
-                turnsAnalyzer.updateTurnsAndScore(GameState.Utils.getIdealAuxDiag());
+                turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealAuxDiag());
                 isAuxDiagChecked = true;
             }
         }
         // выбираем из списка доступных ходов ту клетку, которая имеет наименьшее кол-во пустых клеток на линии
-        Optional<Map.Entry<Integer, Integer>> opt = turnsAnalyzer.ratedTurns.stream().min(Map.Entry.comparingByValue());
-//                Comparator.comparingInt(
-//                Map.Entry::getValue));
-        int minValue = opt.isPresent() ? opt.get().getValue() : -1;
+        Optional<Map.Entry<Integer, Long>> opt = turnsAnalyzer.ratedTurns.stream().min(Map.Entry.comparingByValue());
+        long minValue = opt.isPresent() ? opt.get().getValue() : -1;
         if (isGetMultilineWinCell)
         {
             // выбираем из списка записи с минимальным рейтингом и ищем среди них тот номер клетки, что встречается
@@ -149,7 +165,7 @@ public final class NormalAI implements AICellNumberGenerator
             Optional<Integer> optCellNumber = turnsAnalyzer.ratedTurns.stream().filter(x -> x.getValue().equals(minValue)).
                     collect(Collectors.groupingBy(Map.Entry::getKey)).entrySet().stream().max(Comparator.comparingInt(x ->
                             x.getValue().size())).map(Map.Entry::getKey);
-    
+            
             return new AbstractMap.SimpleEntry<>(optCellNumber.orElse(-1), minValue);
         }
         else
@@ -167,9 +183,9 @@ public final class NormalAI implements AICellNumberGenerator
     {
         class WinCellFinder     // локальный класс - обёртка для повторяющейся "лямбды"
         {
-            int findWinCell(IntStream ideal, List<Integer> source)
+            private int findWinCell(IntStream ideal, List<Integer> source)
             {
-                return ideal.filter(x -> GameState.Current.checkCell(x) && !source.contains(x)).findFirst().orElse(-1);
+                return ideal.filter(x -> GameState.current.checkCell(x) && !source.contains(x)).findAny().orElse(-1);
             }
         }
         
@@ -185,7 +201,7 @@ public final class NormalAI implements AICellNumberGenerator
         boolean isAuxDiagChecked = false;
         WinCellFinder cellFinder = new WinCellFinder();
         
-        final int boardsize = GameState.Current.getBoardSize();
+        final int boardsize = GameState.current.getBoardSize();
         
         for (Integer cellNumber : turnsHistory)
         {
@@ -278,7 +294,7 @@ public final class NormalAI implements AICellNumberGenerator
      */
     private int getCpuWinCellNumber()
     {
-        return getWinCellNumber(GameState.Current.getCpuTurnsHistory());
+        return getWinCellNumber(GameState.current.getCpuTurnsHistory());
     }
     
     /**
@@ -288,7 +304,7 @@ public final class NormalAI implements AICellNumberGenerator
      */
     private int getPlayerWinCellNumber()
     {
-        return getWinCellNumber(GameState.Current.getPlayerTurnsHistory());
+        return getWinCellNumber(GameState.current.getPlayerTurnsHistory());
     }
     
 }

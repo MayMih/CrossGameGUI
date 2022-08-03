@@ -13,11 +13,7 @@ import static org.mmu.task7.MainForm.IS_DEBUG;
  * */
 public final class GameState
 {
-    public boolean isPlayerMovesFirst()
-    {
-        return playerSymbol == X_SYMBOL;
-    }
-    
+   
     
     //region 'Типы данных'
     
@@ -41,22 +37,22 @@ public final class GameState
         
         public static int[] convertCellNumberToCoords(int number)
         {
-            return new int[] { number / Current.boardSize, number % Current.boardSize };
+            return new int[] {number / current.boardSize, number % current.boardSize };
         }
         
         public static int convertCoordsToCellNumber(int rowIndex, int columnIndex)
         {
-            return rowIndex * Current.boardSize + columnIndex;
+            return rowIndex * current.boardSize + columnIndex;
         }
         
         public static int getRowIndexFromCellNumber(int cellNumber)
         {
-            return cellNumber / Current.boardSize;
+            return cellNumber / current.boardSize;
         }
     
         public static int getColumnIndexFromCellNumber(int cellNumber)
         {
-            return cellNumber % Current.boardSize;
+            return cellNumber % current.boardSize;
         }
     
         /**
@@ -77,7 +73,7 @@ public final class GameState
          */
         public static IntStream getIdealRow(int rowNumber)
         {
-            return IntStream.iterate(convertCoordsToCellNumber(rowNumber, 0), x -> x + 1).limit(Current.getBoardSize());
+            return IntStream.iterate(convertCoordsToCellNumber(rowNumber, 0), x -> x + 1).limit(current.getBoardSize());
         }
     
         /**
@@ -88,7 +84,7 @@ public final class GameState
          */
         public static IntStream getIdealColumn(int collNumber)
         {
-            final int board_size = Current.boardSize;
+            final int board_size = current.boardSize;
             return IntStream.iterate(convertCoordsToCellNumber(0, collNumber), x -> x + board_size).limit(board_size);
         }
     
@@ -99,7 +95,7 @@ public final class GameState
          */
         public static IntStream getIdealMainDiag()
         {
-            final int board_size = Current.boardSize;
+            final int board_size = current.boardSize;
             // Наблюдение: номера ячеек на главной диагонали отличаются на (N + 1)
             return IntStream.iterate(0, x -> x + board_size + 1).limit(board_size);
         }
@@ -111,7 +107,7 @@ public final class GameState
          */
         public static IntStream getIdealAuxDiag()
         {
-            final int board_size = Current.boardSize;
+            final int board_size = current.boardSize;
             // Наблюдение: номера ячеек на побочной диагонали отличаются на (N - 1)
             return IntStream.iterate(board_size - 1, x -> x + board_size - 1).limit(board_size);
         }
@@ -146,7 +142,7 @@ public final class GameState
     
         public static boolean isAuxDiagCoords(int rowNumber, int colNumber)
         {
-            return (colNumber + rowNumber) == (Current.boardSize - 1);
+            return (colNumber + rowNumber) == (current.boardSize - 1);
         }
     }
     
@@ -158,9 +154,9 @@ public final class GameState
     //region 'Поля и константы'
     
     public static final char X_SYMBOL = 'X', ZERO_SYMBOL = 'O', EMPTY_CELL_SYMBOL = ' ';
-    public static final int DEFAULT_BOARD_SIZE = 3;
-    public static final GameState Current = new GameState();
-    // ?! Похоже в Java статические поля инициализируется ПОСЛЕ полей экземпляра ?!
+    public static final int DEFAULT_BOARD_SIZE = 4;             //3
+    public static final GameState current = new GameState();
+    // ?! Похоже в Java статические поля инициализируется ПОСЛЕ полей экземпляра - вроде НЕТ ?!
     public static final Random rand = new Random();
     
     private final AILevel DEFAULT_AI_LEVEL = AILevel.AboveNormal;
@@ -176,10 +172,7 @@ public final class GameState
     private AICellNumberGenerator aiEngine;
     
     /**
-     * Список ходов ПК
-     *
-     * @implNote Хотя тут и логичнее использовать список (т.к. кол-во ходов заранее неизвестно), но производительность
-     * списков в Java под вопросом, учитывая обязательную упаковку/распаковку...
+     * Списки ходов ПК и Игрока
      */
     private ArrayList<Integer> cpuTurnsHistory, playerTurnsHistory;
     
@@ -334,6 +327,11 @@ public final class GameState
             playerTurnsHistory = new ArrayList<>(boardSize * boardSize);
         }
         return playerTurnsHistory;
+    }
+    
+    public boolean isPlayerMovesFirst()
+    {
+        return playerSymbol == X_SYMBOL;
     }
     
     //endregion 'Свойства'
@@ -592,7 +590,8 @@ public final class GameState
      * @return Возвращает True, если обнаружена победа ИИ
      *
      * @implSpec ОСТОРОЖНО: перед вызовом данного метода нужна обязательная проверка на наличие свободных клеток (см.:
-     * {@link #noMoreMoves()}), иначе возможно зацикливание.
+     *          {@link #noMoreWinMoves()}), иначе возможно зацикливание.
+     *
      * @implNote Сбрасывает признак запуска игры {@link #isStarted()}, т.к. содержит вызов {@link #checkWin(char, int, int)}
      */
     public boolean makeCpuTurn()
@@ -609,34 +608,111 @@ public final class GameState
         //  к этому моменту нужно будет иметь историю ходов ПК.
         getCpuTurnsHistory().add(cellNumber);
         setSymbolAt(cellNumber, cpuSymbol);
-//        rowIndex = Utils.getRowIndexFromCellNumber(cellNumber);
-//        colIndex = Utils.getColumnIndexFromCellNumber(cellNumber);
-//        gameBoard[rowIndex][colIndex] = cpuSymbol;
+        if (IS_DEBUG)
+        {
+            GameState.current.printBoard();
+        }
         fireGameStateChangedEvent(new CpuTurnCompletedEvent(this, cellNumber, boardSize));
         return checkWin(cpuSymbol, cellNumber);
     }
     
     /**
-     * Метод ищет пустые клетки, если таковых нет, возвращает True
+     * Метод ищет пустые клетки (и линии не заполненные сразу двумя игроками), если таковых нет, возвращает True
      *
-     * @apiNote TODO: по идее можно считать, что ходов нет не только, когда вообще нет пустых клеток, но и когда
-     * дальнейшие ходы не имеют смысла - не могут привести к победе.
      * @implNote Сбрасывает признак запуска игры {@link #isStarted()}, если ходов больше нет.
+     *
      * @implSpec Имеет смысл только, если предварительно было проверено условие победы ({@link #checkWin(char)}).
      */
-    public boolean noMoreMoves()
+    public boolean noMoreWinMoves()
     {
+        class CellChecker
+        {
+            private boolean hasPlayerCell = false, hasCpuCell = false, hasEmptyCell = false;
+            
+            private boolean hasDifferentCells(char ch)
+            {
+                if (hasPlayerCell && hasCpuCell)
+                {
+                    return true;
+                }
+                if (ch == EMPTY_CELL_SYMBOL)
+                {
+                    hasEmptyCell = true;
+                }
+                else if (ch == playerSymbol)
+                {
+                    hasPlayerCell = true;
+                }
+                if (ch == cpuSymbol)
+                {
+                    hasCpuCell = true;
+                }
+                return false;
+            }
+            
+            private void Reset()
+            {
+                hasPlayerCell = hasCpuCell = hasEmptyCell = false;
+            }
+        }
+        
+        final CellChecker checker = new CellChecker();
+        // проверяем строки
+        boolean isRowFailed = false;
         for (char[] row : gameBoard)
         {
             for (char ch : row)
             {
-                if (ch == EMPTY_CELL_SYMBOL)
+                isRowFailed = checker.hasDifferentCells(ch);
+                if (isRowFailed)
                 {
-                    return false;
+                    break;
                 }
             }
+            if (!isRowFailed && checker.hasEmptyCell)
+            {
+                return false;
+            }
+            checker.Reset();
         }
-        isStarted = false;
+        
+        // проверяем столбцы и диагонали
+        final CellChecker auxChecker = new CellChecker();
+        final CellChecker mainChecker = new CellChecker();
+        boolean isMainFailed = false, isAuxFailed = false, isColFailed = false;
+        
+        for (int i = 0; i < boardSize; i++)
+        {
+            if (!isMainFailed)
+            {
+                if (mainChecker.hasDifferentCells(gameBoard[i][i]))
+                {
+                    isMainFailed = true;
+                }
+            }
+            if (!isAuxFailed)
+            {
+                if (auxChecker.hasDifferentCells(gameBoard[i][boardSize - i]))
+                {
+                    isAuxFailed = true;
+                }
+            }
+            for (int j = 0; j < boardSize; j++)
+            {
+                isColFailed = checker.hasDifferentCells(gameBoard[j][i]);
+                if (isColFailed)
+                {
+                    break;
+                }
+            }
+            if (!isColFailed && checker.hasEmptyCell)
+            {
+                return false;
+            }
+            checker.Reset();
+        }
+
+        this.isStarted = false;
         return true;
     }
     
