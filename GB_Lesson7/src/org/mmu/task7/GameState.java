@@ -5,6 +5,7 @@ import org.mmu.task7.events.*;
 
 import java.util.*;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.mmu.task7.MainForm.IS_DEBUG;
 
@@ -166,6 +167,7 @@ public final class GameState
     private char[][] gameBoard = new char[DEFAULT_BOARD_SIZE][DEFAULT_BOARD_SIZE];
     private boolean isStarted = false;
     private int boardSize = DEFAULT_BOARD_SIZE;
+    
     /**
      * Текущий выбранный движок ИИ
      */
@@ -692,7 +694,7 @@ public final class GameState
             }
             if (!isAuxFailed)
             {
-                if (auxChecker.hasDifferentCells(gameBoard[i][boardSize - i]))
+                if (auxChecker.hasDifferentCells(gameBoard[i][boardSize - i - 1]))
                 {
                     isAuxFailed = true;
                 }
