@@ -5,4 +5,4 @@ Specification-Version: 1.0
 Created-By: Маюров Михаил Юрьевич
 Specification-Title: Игра "Крестики-нолики"
 Specification-Vendor: Маюров Михаил Юрьевич
-Implementation-Title: # "Крестики-нолики"
+Implementation-Title: # Крестики-нолики

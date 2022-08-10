@@ -114,9 +114,9 @@ public final class NormalAI implements AICellNumberGenerator
         final ArrayList<Integer> checkedCols = new ArrayList<>();
         final AvailableTurnsAnalyzer turnsAnalyzer = new AvailableTurnsAnalyzer();
         final int boardSize = GameState.current.getBoardSize();
-        
-        boolean isMainDiagChecked = GameState.Utils.getIdealMainDiag().noneMatch(playerTurns::contains);
-        boolean isAuxDiagChecked = GameState.Utils.getIdealAuxDiag().noneMatch(playerTurns::contains);
+        // если на диагоналях есть хотя бы одна клетка заполненная Игроком, то считаем эту диагональ уже проверенной (т.е. неподходящей)
+        boolean isMainDiagChecked = GameState.Utils.getIdealMainDiag().anyMatch(playerTurns::contains);
+        boolean isAuxDiagChecked = GameState.Utils.getIdealAuxDiag().anyMatch(playerTurns::contains);
         
         for (int i = 0; i < boardSize * boardSize; i++)
         {

@@ -103,8 +103,6 @@ public class MainForm
     private static final Skin DEFAULT_LOOK_AND_FEEL = Skin.FlatIdea;
     private static final String BOARD_SIZE_CAPTION_START = "Размер поля:";
     private static final Package _pkg;
-    private static final Object[] NEW_GAME_OPTIONS = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL, "<html>Как в прошлый раз: '<b>" +
-            GameState.current.getPlayerSymbol() + "</b>'</html>"};
     
     private Point _mouseDownCursorPos;
     
@@ -201,7 +199,7 @@ public class MainForm
     public MainForm()
     {
         String progName = _pkg.getImplementationTitle() + "";
-        _mainFrame.setTitle(progName.isEmpty() || progName.equalsIgnoreCase("null") ? "# \"Крестики-нолики\"" : progName);
+        _mainFrame.setTitle(progName.isEmpty() || progName.equalsIgnoreCase("null") ? "# Крестики-нолики" : progName);
         _mainFrame.setContentPane(pMain);
         // по умолчанию при закрытии ничего не делаем, вроде как это нужно для того, чтобы можно было отобразить запрос
         _mainFrame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -271,29 +269,7 @@ public class MainForm
         mGame.add(actExitProgram);
         if (IS_DEBUG)
         {
-            mGame.add(new AbstractAction("Отменить ход (игрока и ПК)")
-            {
-                @Override
-                public void actionPerformed(ActionEvent e)
-                {
-                    List<Integer> history = GameState.current.getPlayerTurnsHistory();
-                    if (history.isEmpty())
-                    {
-                        JOptionPane.showMessageDialog(tableGameBoard, "Игрок ещё не делал ходов - нечего отменять!",
-                                "Отказ", JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-                    CrossGameTableModel tm = ((CrossGameTableModel)tableGameBoard.getModel());
-                    tm.clearCell(history.remove(history.size() - 1));
-                    history = GameState.current.getCpuTurnsHistory();
-                    if (!history.isEmpty())
-                    {
-                        tm.clearCell(history.remove(history.size() - 1));
-                    }
-                    JOptionPane.showMessageDialog(tableGameBoard, "Можете сделать новый ход!", "Ход отменён",
-                            JOptionPane.INFORMATION_MESSAGE);
-                }
-            });
+            mGame.add(actCancelPLayerTurn);
         }
         miniBar.add(mGame);
         JMenu mOptions = new JMenu("Опции");
@@ -392,6 +368,34 @@ public class MainForm
     //region 'Обработчики'
     
     /**
+     * Действие "Отменить ход Игрока"
+     */
+    private final Action actCancelPLayerTurn = new AbstractAction("Отменить ход (игрока и ПК)")
+    {
+        @Override
+        public void actionPerformed(ActionEvent e)
+        {
+            List<Integer> history = GameState.current.getPlayerTurnsHistory();
+            if (history.isEmpty())
+            {
+                JOptionPane.showMessageDialog(tableGameBoard, "Игрок ещё не делал ходов - нечего отменять!",
+                    "Отказ", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            CrossGameTableModel tm = ((CrossGameTableModel)tableGameBoard.getModel());
+            tm.clearCell(history.remove(history.size() - 1));
+            history = GameState.current.getCpuTurnsHistory();
+            if (!history.isEmpty())
+            {
+                tm.clearCell(history.remove(history.size() - 1));
+            }
+            GameState.current.setStarted(true);
+            JOptionPane.showMessageDialog(tableGameBoard, "Можете сделать новый ход!", "Ход отменён",
+                JOptionPane.INFORMATION_MESSAGE);
+        }
+    };
+    
+    /**
      * Действие - "Новая игра"
      * */
     private final Action actStartNewGame = new AbstractAction("Новая игра")
@@ -399,6 +403,10 @@ public class MainForm
         @Override
         public void actionPerformed(ActionEvent e)
         {
+            final Object[] NEW_GAME_OPTIONS = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL,
+                                                                    "<html>Как в прошлый раз: '<b>" +
+                                                                    GameState.current.getPlayerSymbol() + "</b>'</html>"
+            };
             int res = -1;
             if (GameState.current.isStarted())
             {

@@ -4,6 +4,7 @@ import org.mmu.task7.aiengine.*;
 import org.mmu.task7.events.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -76,7 +77,6 @@ public final class GameState
         {
             return IntStream.iterate(convertCoordsToCellNumber(rowNumber, 0), x -> x + 1).limit(current.getBoardSize());
         }
-    
         /**
          * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
          * @param collNumber Координата выигрышного столбца, который нужно сгенерировать
@@ -165,6 +165,7 @@ public final class GameState
     private AILevel aiLevel = DEFAULT_AI_LEVEL;
     private char playerSymbol = X_SYMBOL, cpuSymbol = ZERO_SYMBOL;
     private char[][] gameBoard = new char[DEFAULT_BOARD_SIZE][DEFAULT_BOARD_SIZE];
+    
     private boolean isStarted = false;
     private int boardSize = DEFAULT_BOARD_SIZE;
     
@@ -288,7 +289,16 @@ public final class GameState
      */
     public boolean isStarted()
     {
-        return isStarted && !isNoMoreMoves();
+        return isStarted;
+    }
+    
+    /**
+     * Устанавливает признак того, что Игра запущена
+     * @apiNote Полезно для случаев, когда нужно отменить ход Игрока
+     */
+    public void setStarted(boolean started)
+    {
+        isStarted = started;
     }
     
     /**
@@ -627,16 +637,13 @@ public final class GameState
      */
     public boolean noMoreWinMoves()
     {
+        // вспомогательный класс - накапливает текущее состояние проверяемой линии
         class CellChecker
         {
             private boolean hasPlayerCell = false, hasCpuCell = false, hasEmptyCell = false;
             
             private boolean hasDifferentCells(char ch)
             {
-                if (hasPlayerCell && hasCpuCell)
-                {
-                    return true;
-                }
                 if (ch == EMPTY_CELL_SYMBOL)
                 {
                     hasEmptyCell = true;
@@ -649,7 +656,7 @@ public final class GameState
                 {
                     hasCpuCell = true;
                 }
-                return false;
+                return hasPlayerCell && hasCpuCell;
             }
             
             private void Reset()
@@ -713,7 +720,14 @@ public final class GameState
             }
             checker.Reset();
         }
-
+        if (!isMainFailed && mainChecker.hasEmptyCell)
+        {
+            return false;
+        }
+        if (!isAuxFailed && auxChecker.hasEmptyCell)
+        {
+            return false;
+        }
         this.isStarted = false;
         return true;
     }
