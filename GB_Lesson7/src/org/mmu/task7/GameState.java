@@ -4,9 +4,7 @@ import org.mmu.task7.aiengine.*;
 import org.mmu.task7.events.*;
 
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static org.mmu.task7.MainForm.IS_DEBUG;
 
@@ -15,7 +13,6 @@ import static org.mmu.task7.MainForm.IS_DEBUG;
  * */
 public final class GameState
 {
-   
     
     //region 'Типы данных'
     
@@ -113,22 +110,22 @@ public final class GameState
             return IntStream.iterate(board_size - 1, x -> x + board_size - 1).limit(board_size);
         }
         
-        public static boolean isSameRowCells(int cellA, int cellB)
-        {
-            return getRowIndexFromCellNumber(cellA) == getColumnIndexFromCellNumber(cellB);
-        }
-    
         /**
          * Метод проверки того, являются ли клетки <b>родственными</b>, т.е. есть ли у них совпадающие к-ты строки или столбца
-         * @param cellA
-         * @param cellB
-         * @return
+         * @param cellA - первая проверяемая ячейка
+         * @param cellB - вторая проверяемая ячейка
+         * @return  Признак того, принадлежать ли ячейки одной строке/столбцу
          */
         public static boolean isSiblingRowCells(int cellA, int cellB)
         {
             int[] c1 = convertCellNumberToCoords(cellA);
             int[] c2 = convertCellNumberToCoords(cellB);
             return c1[0] == c2[0] || c1[1] == c2[1];
+        }
+        
+        public static boolean isSameRowCells(int cellA, int cellB)
+        {
+            return getRowIndexFromCellNumber(cellA) == getColumnIndexFromCellNumber(cellB);
         }
     
         public static boolean isSameColCells(Integer cellA, Integer cellB)
@@ -354,8 +351,8 @@ public final class GameState
      * Скрытый конструктор - для реализации Синглтона
      *
      * @implNote TODO: Возможно стоит не ограничивать игру одним экземпляром - тогда не нужно будет постоянно актуализировать
-     * метод {@link GameState#Reset()}? Правда в этом случае придётся заново привязывать обработчик изменения состояния игры
-     * при каждом её сбросе, зато станет возможным хранение нескольких состояний (например для отмены хода или поддержки сохранений).
+     *      метод {@link GameState#Reset()}? Правда в этом случае придётся заново привязывать обработчик изменения состояния игры
+     *      при каждом её сбросе.
      */
     private GameState()
     {
@@ -638,11 +635,21 @@ public final class GameState
     public boolean noMoreWinMoves()
     {
         // вспомогательный класс - накапливает текущее состояние проверяемой линии
-        class CellChecker
+        class LineChecker
         {
             private boolean hasPlayerCell = false, hasCpuCell = false, hasEmptyCell = false;
+
+            private boolean hasNoDifferentCells()
+            {
+                return !(hasPlayerCell && hasCpuCell);
+            }
             
-            private boolean hasDifferentCells(char ch)
+            /**
+             * Добавляет ячейку к списку проверки
+             * @param ch Проверяемая ячейка
+             * @return True - всё в порядке - проверка линии может продолжаться, False - на линии обнаружены ячейки разных игроков
+             */
+            private boolean appendCell(char ch)
             {
                 if (ch == EMPTY_CELL_SYMBOL)
                 {
@@ -656,29 +663,30 @@ public final class GameState
                 {
                     hasCpuCell = true;
                 }
-                return hasPlayerCell && hasCpuCell;
+                return hasNoDifferentCells();
             }
-            
-            private void Reset()
+    
+            /**
+             * Сбрасывает накопленное состояние объекта (знания о проверяемой линии)
+             */
+            public void Reset()
             {
                 hasPlayerCell = hasCpuCell = hasEmptyCell = false;
             }
         }
         
-        final CellChecker checker = new CellChecker();
+        final LineChecker checker = new LineChecker();
         // проверяем строки
-        boolean isRowFailed = false;
         for (char[] row : gameBoard)
         {
             for (char ch : row)
             {
-                isRowFailed = checker.hasDifferentCells(ch);
-                if (isRowFailed)
+                if (!checker.appendCell(ch))
                 {
                     break;
                 }
             }
-            if (!isRowFailed && checker.hasEmptyCell)
+            if (checker.hasNoDifferentCells() && checker.hasEmptyCell)
             {
                 return false;
             }
@@ -686,45 +694,37 @@ public final class GameState
         }
         
         // проверяем столбцы и диагонали
-        final CellChecker auxChecker = new CellChecker();
-        final CellChecker mainChecker = new CellChecker();
-        boolean isMainFailed = false, isAuxFailed = false, isColFailed = false;
+        final LineChecker auxChecker = new LineChecker();
+        final LineChecker mainChecker = new LineChecker();
         
         for (int i = 0; i < boardSize; i++)
         {
-            if (!isMainFailed)
+            checker.Reset();
+            if (mainChecker.hasNoDifferentCells())
             {
-                if (mainChecker.hasDifferentCells(gameBoard[i][i]))
-                {
-                    isMainFailed = true;
-                }
+                mainChecker.appendCell(gameBoard[i][i]);
             }
-            if (!isAuxFailed)
+            if (auxChecker.hasNoDifferentCells())
             {
-                if (auxChecker.hasDifferentCells(gameBoard[i][boardSize - i - 1]))
-                {
-                    isAuxFailed = true;
-                }
+                auxChecker.appendCell(gameBoard[i][boardSize - i - 1]);
             }
             for (int j = 0; j < boardSize; j++)
             {
-                isColFailed = checker.hasDifferentCells(gameBoard[j][i]);
-                if (isColFailed)
+                if (!checker.appendCell(gameBoard[j][i]))
                 {
                     break;
                 }
             }
-            if (!isColFailed && checker.hasEmptyCell)
+            if (checker.hasNoDifferentCells() && checker.hasEmptyCell)
             {
                 return false;
             }
-            checker.Reset();
         }
-        if (!isMainFailed && mainChecker.hasEmptyCell)
+        if (mainChecker.hasNoDifferentCells() && mainChecker.hasEmptyCell)
         {
             return false;
         }
-        if (!isAuxFailed && auxChecker.hasEmptyCell)
+        if (auxChecker.hasNoDifferentCells() && auxChecker.hasEmptyCell)
         {
             return false;
         }
