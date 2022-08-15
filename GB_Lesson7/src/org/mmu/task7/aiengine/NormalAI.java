@@ -103,9 +103,6 @@ public final class NormalAI implements AICellNumberGenerator
                 {
                     ratedTurns.add(new AbstractMap.SimpleEntry<>(cellNumber, emptyCellsCount));
                 }
-//                availableTurns.stream().filter(x -> !cpuHistory.contains(x)).findAny().ifPresent(x ->
-//                    ratedTurns.add(new AbstractMap.SimpleEntry<>(x, availableTurns.size()))
-//                );
             }
         }
         
@@ -117,7 +114,7 @@ public final class NormalAI implements AICellNumberGenerator
         // если на диагоналях есть хотя бы одна клетка заполненная Игроком, то считаем эту диагональ уже проверенной (т.е. неподходящей)
         boolean isMainDiagChecked = GameState.Utils.getIdealMainDiag().anyMatch(playerTurns::contains);
         boolean isAuxDiagChecked = GameState.Utils.getIdealAuxDiag().anyMatch(playerTurns::contains);
-        
+        // проверяем все ячейки в таблице
         for (int i = 0; i < boardSize * boardSize; i++)
         {
             if (!GameState.current.checkCell(i))
@@ -128,9 +125,9 @@ public final class NormalAI implements AICellNumberGenerator
             // пытаемся получить случайную клетку из потенциально выигрышной строки
             if (!checkedRows.contains(rowNumber))
             {
-                if (GameState.Utils.getIdealRow(i).noneMatch(playerTurns::contains))
+                if (GameState.Utils.getIdealRow(rowNumber).noneMatch(playerTurns::contains))   // приходится два раза пересоздавать IntStream
                 {
-                    turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealRow(i));
+                    turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealRow(rowNumber));
                 }
                 checkedRows.add(rowNumber);
             }
@@ -138,9 +135,9 @@ public final class NormalAI implements AICellNumberGenerator
             // пытаемся получить случайную клетку из потенциально выигрышного столбца
             if (!checkedCols.contains(colNumber))
             {
-                if (GameState.Utils.getIdealColumn(i).noneMatch(playerTurns::contains))
+                if (GameState.Utils.getIdealColumn(colNumber).noneMatch(playerTurns::contains))
                 {
-                    turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealColumn(i));
+                    turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealColumn(colNumber));
                 }
                 checkedCols.add(colNumber);
             }

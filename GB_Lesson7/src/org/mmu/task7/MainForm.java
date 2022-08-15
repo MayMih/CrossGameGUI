@@ -513,6 +513,11 @@ public class MainForm
                 JOptionPane.showMessageDialog(e.getComponent(), "Победил ИИ", "Игра окончена",
                         JOptionPane.INFORMATION_MESSAGE);
             }
+            else if (GameState.current.noMoreWinMoves())
+            {
+                JOptionPane.showMessageDialog(e.getComponent(), "Ничья - ходов больше нет!", "Игра окончена",
+                    JOptionPane.INFORMATION_MESSAGE);
+            }
         }
     };
     

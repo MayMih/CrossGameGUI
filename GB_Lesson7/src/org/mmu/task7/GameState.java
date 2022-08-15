@@ -60,7 +60,7 @@ public final class GameState
          * @return Идеальный набор ячеек
          * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
-        public static IntStream getIdealRow(Integer cellNumber)
+        public static IntStream getIdealRowForCellNumber(int cellNumber)
         {
             return getIdealRow(getRowIndexFromCellNumber(cellNumber));
         }
@@ -735,6 +735,7 @@ public final class GameState
     /**
      * Метод проверки корректности хода
      * @param cellNumber Номер ячейки, которую нужно проверять
+     * @return True - ячейка пустая
      */
     public boolean checkCell(int cellNumber)
     {
@@ -748,6 +749,7 @@ public final class GameState
      *
      * @param rowIndex - координата от 0 до {@link #boardSize}
      * @param columnIndex - координата от 0 до {@link #boardSize}
+     * @return True - ячейка пустая
      * */
     public boolean checkCoords(int rowIndex, int columnIndex)
     {
@@ -765,10 +767,10 @@ public final class GameState
         }
         else
         {
-            if (IS_DEBUG)
-            {
-                System.out.printf("Эта клетка (%d; %d) уже занята - ход невозможен!%n", rowIndex, columnIndex);
-            }
+//            if (IS_DEBUG)
+//            {
+//                System.out.printf("Эта клетка (%d; %d) уже занята - ход невозможен!%n", rowIndex, columnIndex);
+//            }
             return false;
         }
     }
