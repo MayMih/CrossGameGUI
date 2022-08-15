@@ -82,23 +82,21 @@ public final class NormalAI implements AICellNumberGenerator
      */
     AbstractMap.SimpleEntry<Integer, Long> getBestCell(boolean isGetMultilineWinCell)
     {
-        final List<Integer> cpuHistory = GameState.current.getCpuTurnsHistory();
-        if (cpuHistory.isEmpty())
+        final List<Integer> cpuTurns = GameState.current.getCpuTurnsHistory();
+        final List<Integer> playerTurns = GameState.current.getPlayerTurnsHistory();
+        if (cpuTurns.isEmpty())
         {
             return new AbstractMap.SimpleEntry<>(-1, -1L);
         }
-    
+        // Класс-счётчик пустых клеток на линии (линия должна быть предварительно проверена
         class AvailableTurnsAnalyzer
         {
-            private final List<Integer> availableTurns = new ArrayList<>();
             // Ключ - номер свободной ячейки, Значение - кол-во свободных ячеек в строке/ряду/диагонали (содержит повторения)
             public final List<Map.Entry<Integer, Long>> ratedTurns = new ArrayList<>();
         
             private void updateTurnsAndScore(int cellNumber, IntStream ideal)
             {
-                availableTurns.clear();
-                availableTurns.addAll(ideal.boxed().collect(Collectors.toList()));
-                long emptyCellsCount = availableTurns.stream().filter(x -> !cpuHistory.contains(x)).count();
+                long emptyCellsCount = ideal.filter(x -> !cpuTurns.contains(x)).count();
                 if (emptyCellsCount > 0)
                 {
                     ratedTurns.add(new AbstractMap.SimpleEntry<>(cellNumber, emptyCellsCount));
@@ -106,7 +104,6 @@ public final class NormalAI implements AICellNumberGenerator
             }
         }
         
-        final List<Integer> playerTurns = GameState.current.getPlayerTurnsHistory();
         final ArrayList<Integer> checkedRows = new ArrayList<>();
         final ArrayList<Integer> checkedCols = new ArrayList<>();
         final AvailableTurnsAnalyzer turnsAnalyzer = new AvailableTurnsAnalyzer();
@@ -125,7 +122,8 @@ public final class NormalAI implements AICellNumberGenerator
             // пытаемся получить случайную клетку из потенциально выигрышной строки
             if (!checkedRows.contains(rowNumber))
             {
-                if (GameState.Utils.getIdealRow(rowNumber).noneMatch(playerTurns::contains))   // приходится два раза пересоздавать IntStream
+                // приходится два раза пересоздавать IntStream, т.к. к стримам в Java можно применять только одну терминальную операцию!
+                if (GameState.Utils.getIdealRow(rowNumber).noneMatch(playerTurns::contains))
                 {
                     turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealRow(rowNumber));
                 }
