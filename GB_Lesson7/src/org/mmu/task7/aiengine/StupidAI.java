@@ -30,13 +30,13 @@ public final class StupidAI implements AICellNumberGenerator
     int generateRandomEmptyCellCoords()
     {
         int rowIndex, colIndex;
-        final int boardSize = GameState.current.getBoardSize();
+        final int boardSize = GameState.getCurrent().getBoardSize();
         do
         {
             rowIndex = GameState.rand.nextInt(boardSize);
             colIndex = GameState.rand.nextInt(boardSize);
         }
-        while (!GameState.current.checkCoords(rowIndex, colIndex));
+        while (!GameState.getCurrent().checkCoords(rowIndex, colIndex));
         return GameState.Utils.convertCoordsToCellNumber(rowIndex, colIndex);
     }
 }

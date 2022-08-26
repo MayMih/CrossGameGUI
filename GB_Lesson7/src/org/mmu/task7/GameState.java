@@ -3,7 +3,10 @@ package org.mmu.task7;
 import org.mmu.task7.aiengine.*;
 import org.mmu.task7.events.*;
 
+import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -11,9 +14,23 @@ import static org.mmu.task7.MainForm.IS_DEBUG;
 
 /**
  * Класс-синглтон текущего состояния игры
- * */
-public final class GameState implements Serializable
+ */
+public final class GameState implements Serializable, AutoCloseable
 {
+    /**
+     * Версия объекта - нужно менять при каждом изменении состава полей, иначе могут быть проблемы при десериализации!
+     */
+    private static final long serialVersionUID = 1L;
+    
+    /**
+     * При закрытии игры очищаем список слушателей событий
+     */
+    @Override
+    public void close() throws Exception
+    {
+        _listeners.clear();
+    }
+    
     
     //region 'Типы данных'
     
@@ -33,11 +50,13 @@ public final class GameState implements Serializable
         // прячем конструктор от внешнего кода, т.к. в Java можно создавать
         // экземпляры вложенных статических классов! То, что класс помечен спецификатором static, в данном случае значит
         // лишь то, что его экземпляры могут быть созданы Без создания экземпляра класса-родителя (GameState)
-        private Utils() {}
+        private Utils()
+        {
+        }
         
         public static int[] convertCellNumberToCoords(int number)
         {
-            return new int[] {number / current.boardSize, number % current.boardSize };
+            return new int[] {number / current.boardSize, number % current.boardSize};
         }
         
         public static int convertCoordsToCellNumber(int rowIndex, int columnIndex)
@@ -49,36 +68,47 @@ public final class GameState implements Serializable
         {
             return cellNumber / current.boardSize;
         }
-    
+        
         public static int getColumnIndexFromCellNumber(int cellNumber)
         {
             return cellNumber % current.boardSize;
         }
-    
+        
         /**
          * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
+         *
          * @param cellNumber Номер выигрышной строки, которую нужно сгенерировать
+         *
          * @return Идеальный набор ячеек
+         *
          * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
         public static IntStream getIdealRowForCellNumber(int cellNumber)
         {
             return getIdealRow(getRowIndexFromCellNumber(cellNumber));
         }
+        
         /**
          * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
+         *
          * @param rowNumber Координата выигрышной строки, которую нужно сгенерировать
+         *
          * @return Идеальный набор ячеек
+         *
          * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
         public static IntStream getIdealRow(int rowNumber)
         {
             return IntStream.iterate(convertCoordsToCellNumber(rowNumber, 0), x -> x + 1).limit(current.getBoardSize());
         }
+        
         /**
          * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
+         *
          * @param collNumber Координата выигрышного столбца, который нужно сгенерировать
+         *
          * @return Идеальный набор ячеек
+         *
          * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
         public static IntStream getIdealColumn(int collNumber)
@@ -86,10 +116,12 @@ public final class GameState implements Serializable
             final int board_size = current.boardSize;
             return IntStream.iterate(convertCoordsToCellNumber(0, collNumber), x -> x + board_size).limit(board_size);
         }
-    
+        
         /**
          * Метод получения идеального набора ячеек, приводящего к победе по главной диагонали, содержащей указанную ячейку
+         *
          * @return Идеальный набор ячеек
+         *
          * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
         public static IntStream getIdealMainDiag()
@@ -98,10 +130,12 @@ public final class GameState implements Serializable
             // Наблюдение: номера ячеек на главной диагонали отличаются на (N + 1)
             return IntStream.iterate(0, x -> x + board_size + 1).limit(board_size);
         }
-    
+        
         /**
          * Метод получения идеального набора ячеек, приводящего к победе по побочной диагонали, содержащей указанную ячейку
+         *
          * @return Идеальный набор ячеек
+         *
          * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
          */
         public static IntStream getIdealAuxDiag()
@@ -113,9 +147,11 @@ public final class GameState implements Serializable
         
         /**
          * Метод проверки того, являются ли клетки <b>родственными</b>, т.е. есть ли у них совпадающие к-ты строки или столбца
+         *
          * @param cellA - первая проверяемая ячейка
          * @param cellB - вторая проверяемая ячейка
-         * @return  Признак того, принадлежать ли ячейки одной строке/столбцу
+         *
+         * @return Признак того, принадлежать ли ячейки одной строке/столбцу
          */
         public static boolean isSiblingRowCells(int cellA, int cellB)
         {
@@ -128,17 +164,17 @@ public final class GameState implements Serializable
         {
             return getRowIndexFromCellNumber(cellA) == getColumnIndexFromCellNumber(cellB);
         }
-    
+        
         public static boolean isSameColCells(Integer cellA, Integer cellB)
         {
             return getColumnIndexFromCellNumber(cellA) == getColumnIndexFromCellNumber(cellB);
         }
-    
+        
         public static boolean isMainDiagCoords(int rowNumber, int colNumber)
         {
             return colNumber == rowNumber;
         }
-    
+        
         public static boolean isAuxDiagCoords(int rowNumber, int colNumber)
         {
             return (colNumber + rowNumber) == (current.boardSize - 1);
@@ -152,14 +188,13 @@ public final class GameState implements Serializable
     
     //region 'Поля и константы'
     
-    private static ArrayList<GameStateChangedEventListener> _listeners;
-    
+    private static final ArrayList<GameStateChangedEventListener> _listeners = new ArrayList<>();
     public static final char X_SYMBOL = 'X', ZERO_SYMBOL = 'O', EMPTY_CELL_SYMBOL = ' ';
     public static final int DEFAULT_BOARD_SIZE = 4;
     public static final AILevel DEFAULT_AI_LEVEL = AILevel.AboveNormal;
     public static final Random rand = new Random();
     // порядок выполнения инициализаторов (в отличие от C#), см. здесь: https://intuit.ru/studies/higher_education/3406/courses/64/lecture/1886?page=3
-    public static final GameState current = new GameState();
+    private static GameState current;
     
     private AILevel aiLevel = DEFAULT_AI_LEVEL;
     private char playerSymbol = X_SYMBOL, cpuSymbol = ZERO_SYMBOL;
@@ -176,6 +211,7 @@ public final class GameState implements Serializable
     private ArrayList<Integer> cpuTurnsHistory, playerTurnsHistory;
     
     //endregion 'Поля и константы'
+    
     
     
     
@@ -220,7 +256,9 @@ public final class GameState implements Serializable
     
     /**
      * Сеттер уровня ИИ
-     * @param aiLevel   Желаемый уровень ИИ
+     *
+     * @param aiLevel Желаемый уровень ИИ
+     *
      * @exception IllegalArgumentException При неизвестном уровне ИИ
      */
     public synchronized void setAiLevel(AILevel aiLevel)
@@ -288,6 +326,7 @@ public final class GameState implements Serializable
     
     /**
      * Устанавливает признак того, что Игра запущена
+     *
      * @apiNote Полезно для случаев, когда нужно отменить ход Игрока
      */
     public void setStarted(boolean started)
@@ -348,14 +387,15 @@ public final class GameState implements Serializable
      * Скрытый конструктор - для реализации Синглтона
      *
      * @implNote TODO: Возможно стоит не ограничивать игру одним экземпляром - тогда не нужно будет постоянно актуализировать
-     *      метод {@link GameState#Reset()}? Правда в этом случае придётся заново привязывать обработчик изменения состояния игры
-     *      при каждом её сбросе.
+     *     метод {@link GameState#Reset()}? Правда в этом случае придётся заново привязывать обработчик изменения состояния игры
+     *     при каждом её сбросе.
      */
     private GameState()
     {
         // этот вызов обязателен, т.к. иначе не будет выбран соот-щий движок ИИ
         setAiLevel(DEFAULT_AI_LEVEL);
     }
+    
     
     
     
@@ -371,12 +411,7 @@ public final class GameState implements Serializable
     
     public synchronized void addStateChangeListener(GameStateChangedEventListener listener)
     {
-        if (_listeners == null)
-        {
-            _listeners = new ArrayList<>();
-            _listeners.add(listener);
-        }
-        else if (!_listeners.contains(listener))
+        if (!_listeners.contains(listener))
         {
             _listeners.add(listener);
         }
@@ -384,17 +419,57 @@ public final class GameState implements Serializable
     
     public synchronized void removeStateChangeListener(GameStateChangedEventListener listener)
     {
-        if (_listeners != null)
-        {
-            _listeners.remove(listener);
-        }
+        _listeners.remove(listener);
     }
     
     //endregion 'Методы поддержки событий'
     
     
     
+    
     //region 'Методы'
+    
+    /**
+     * Метод получения синглтона состояния Игры
+     */
+    public static synchronized GameState getCurrent()
+    {
+        return getCurrent("");
+    }
+    
+    /**
+     * Метод получения синглтона состояния Игры
+     *
+     * @param serializedStatеFilePath Путь к файлу с сериализованным состоянием игры
+     *
+     * @return Экземпляр объекта состояния игры загруженный из файла или текущий экземпляр, если он уже создан!
+     *
+     * @exception RuntimeException Если загрузка не удалась
+     */
+    public static synchronized GameState getCurrent(String serializedStatеFilePath)
+    {
+        if (current != null)
+        {
+            return current;
+        }
+        if (serializedStatеFilePath == null || serializedStatеFilePath.isEmpty())
+        {
+            current = new GameState();
+        }
+        else
+        {
+            try (ObjectInputStream ois = new ObjectInputStream(Files.newInputStream(Paths.get(serializedStatеFilePath))))
+            {
+                current = (GameState) ois.readObject();
+            }
+            catch (Exception ex)
+            {
+                throw new RuntimeException("Ошибка загрузки синглтона класса " + GameState.class.getSimpleName() + " из файла: \n\"" +
+                    serializedStatеFilePath + "\"", ex);
+            }
+        }
+        return current;
+    }
     
     /**
      * Метод сброса игры - проставляет признак того, что игра началась (см.: {@link #isStarted()})
@@ -542,6 +617,7 @@ public final class GameState implements Serializable
     {
         return checkWin(symbol, Utils.getRowIndexFromCellNumber(cellNumber), Utils.getColumnIndexFromCellNumber(cellNumber));
     }
+    
     /**
      * Метод проверки признака победы (оптимизированная версия)
      *
@@ -596,8 +672,7 @@ public final class GameState implements Serializable
      * @return Возвращает True, если обнаружена победа ИИ
      *
      * @implSpec ОСТОРОЖНО: перед вызовом данного метода нужна обязательная проверка на наличие свободных клеток (см.:
-     *          {@link #noMoreWinMoves()}), иначе возможно зацикливание.
-     *
+     *     {@link #noMoreWinMoves()}), иначе возможно зацикливание.
      * @implNote Сбрасывает признак запуска игры {@link #isStarted()}, т.к. содержит вызов {@link #checkWin(char, int, int)}
      */
     public boolean makeCpuTurn()
@@ -626,7 +701,6 @@ public final class GameState implements Serializable
      * Метод ищет пустые клетки (и линии не заполненные сразу двумя игроками), если таковых нет, возвращает True
      *
      * @implNote Сбрасывает признак запуска игры {@link #isStarted()}, если ходов больше нет.
-     *
      * @implSpec Имеет смысл только, если предварительно было проверено условие победы ({@link #checkWin(char)}).
      */
     public boolean noMoreWinMoves()
@@ -635,7 +709,7 @@ public final class GameState implements Serializable
         class LineChecker
         {
             private boolean hasPlayerCell = false, hasCpuCell = false, hasEmptyCell = false;
-
+            
             private boolean hasNoDifferentCells()
             {
                 return !(hasPlayerCell && hasCpuCell);
@@ -662,7 +736,7 @@ public final class GameState implements Serializable
                 }
                 return hasNoDifferentCells();
             }
-    
+            
             /**
              * Сбрасывает накопленное состояние объекта (знания о проверяемой линии)
              */
@@ -731,7 +805,9 @@ public final class GameState implements Serializable
     
     /**
      * Метод проверки корректности хода
+     *
      * @param cellNumber Номер ячейки, которую нужно проверять
+     *
      * @return True - ячейка пустая
      */
     public boolean checkCell(int cellNumber)
@@ -744,10 +820,11 @@ public final class GameState implements Serializable
     /**
      * Метод проверки корректности хода
      *
-     * @param rowIndex - координата от 0 до {@link #boardSize}
+     * @param rowIndex    - координата от 0 до {@link #boardSize}
      * @param columnIndex - координата от 0 до {@link #boardSize}
+     *
      * @return True - ячейка пустая
-     * */
+     */
     public boolean checkCoords(int rowIndex, int columnIndex)
     {
         if (rowIndex < 0 || rowIndex >= gameBoard.length || columnIndex < 0 || columnIndex >= gameBoard.length)
@@ -758,19 +835,23 @@ public final class GameState implements Serializable
             }
             return false;
         }
-        else return gameBoard[rowIndex][columnIndex] == EMPTY_CELL_SYMBOL;
+        else
+        {
+            return gameBoard[rowIndex][columnIndex] == EMPTY_CELL_SYMBOL;
+        }
     }
     
     /**
      * Метод получения списка пустых клеток указанном в регионе (3 Х 3 относительно указанной клетки)
-     * */
+     */
     public List<Integer> getEmptyCellsInRegion(int cellNumber)
     {
         return getEmptyCellsInRegion(cellNumber / boardSize, cellNumber % boardSize);
     }
+    
     /**
      * Метод получения списка пустых клеток в регионе (3 Х 3 относительно указанных координат)
-     * */
+     */
     private List<Integer> getEmptyCellsInRegion(int rowNumber, int colNumber)
     {
         ArrayList<Integer> result = new ArrayList<>();
@@ -799,15 +880,17 @@ public final class GameState implements Serializable
     
     /**
      * Метод проверки доступных клеток в регионе (3 Х 3 относительно указанного начала координат)
-     * */
+     */
     private boolean noMoreMovesInRegion(int minRowIndex, int minColIndex)
     {
         return noMoreMovesInRegion(minRowIndex, minColIndex, null);
     }
+    
     /**
      * Метод проверки доступных клеток в регионе (3 Х 3 относительно указанного начала координат)
+     *
      * @param ignoredCells Список клеток, которые нужно игнорировать
-     * */
+     */
     private boolean noMoreMovesInRegion(int minRowIndex, int minColIndex, List<Integer> ignoredCells)
     {
         for (int i = minRowIndex; (i < minRowIndex + 3) && (i < boardSize); i++)
@@ -837,8 +920,8 @@ public final class GameState implements Serializable
     
     /**
      * Отладочный метод вывода состояния игровой доски в консоль - каждый символ выводится с отступами в один пробел с каждой стороны. Первым рядом
-     *  и первым столбцом выводятся номера строк и столбцов соот-но.
-     * */
+     * и первым столбцом выводятся номера строк и столбцов соот-но.
+     */
     public void printBoard()
     {
         System.out.println();
@@ -857,6 +940,5 @@ public final class GameState implements Serializable
     
     //endregion 'Методы'
     
-
-
+    
 }

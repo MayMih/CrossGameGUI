@@ -28,7 +28,7 @@ public final class LowAI implements AICellNumberGenerator
      */
     int generateNearbyCoords(boolean isCheckWinAbility)
     {
-        final List<Integer> cpuHistory = GameState.current.getCpuTurnsHistory();
+        final List<Integer> cpuHistory = GameState.getCurrent().getCpuTurnsHistory();
         
         if (cpuHistory.isEmpty())
         {
@@ -44,7 +44,7 @@ public final class LowAI implements AICellNumberGenerator
         // получаем опорную точку, относительно которой будем пытаться делать ход
         for (Integer baseTurnCellNumber : cpuHistory)
         {
-            List<Integer> freeCells = GameState.current.getEmptyCellsInRegion(baseTurnCellNumber);
+            List<Integer> freeCells = GameState.getCurrent().getEmptyCellsInRegion(baseTurnCellNumber);
             if (!isCheckWinAbility && !freeCells.isEmpty())
             {
                 return freeCells.get(0);    // если проверка полезности хода не требуется, то возвращаем первую попавшуюся соседнюю клетку

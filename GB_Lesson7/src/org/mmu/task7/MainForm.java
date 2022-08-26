@@ -10,7 +10,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumn;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.FileOutputStream;
 import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -34,25 +33,25 @@ public class MainForm
         @Override
         public int getRowCount()
         {
-            return GameState.current.getBoardSize();
+            return GameState.getCurrent().getBoardSize();
         }
     
         @Override
         public int getColumnCount()
         {
-            return GameState.current.getBoardSize();
+            return GameState.getCurrent().getBoardSize();
         }
     
         @Override
         public Object getValueAt(int rowIndex, int columnIndex)
         {
-            return GameState.current.getSymbolAt(rowIndex, columnIndex);
+            return GameState.getCurrent().getSymbolAt(rowIndex, columnIndex);
         }
     
         @Override
         public void setValueAt(Object aValue, int rowIndex, int columnIndex)
         {
-            GameState.current.setSymbolAt(rowIndex, columnIndex, aValue.toString().charAt(0));
+            GameState.getCurrent().setSymbolAt(rowIndex, columnIndex, aValue.toString().charAt(0));
             fireTableCellUpdated(rowIndex, columnIndex);
         }
     
@@ -64,17 +63,17 @@ public class MainForm
     
         public int getSize()
         {
-            return GameState.current.getBoardSize();
+            return GameState.getCurrent().getBoardSize();
         }
         
         public void setSize(int newSize)
         {
-            GameState.current.setBoardSize(newSize);
+            GameState.getCurrent().setBoardSize(newSize);
         }
     
         public void clearCell(int cellNumber)
         {
-            GameState.current.setSymbolAt(cellNumber, GameState.EMPTY_CELL_SYMBOL);
+            GameState.getCurrent().setSymbolAt(cellNumber, GameState.EMPTY_CELL_SYMBOL);
         }
     }
     
@@ -100,6 +99,11 @@ public class MainForm
      * */
     static boolean IS_DEBUG;
     
+    /**
+     * Путь к файлу с сохранённым состоянием Игры
+     */
+    public static final String GAMESTATE_DAT_FILE_PATH = "gamestate.dat";
+    
     private static final Color BLUE_X_COLOR = new Color(0,92,231);
     private static final Color RED_ZERO_COLOR = new Color(159,0,0);
     private static final String ABOUT_TEXT;
@@ -109,6 +113,7 @@ public class MainForm
     private static final Package _pkg;
     
     private Point _mouseDownCursorPos;
+    private boolean isStateLoaded;
     
     //endregion 'Поля и константы'
     
@@ -192,16 +197,33 @@ public class MainForm
                 }));
                 // Создаём нашу игровую фому и навешиваем на неё обработчики событий
                 MainForm mf = new MainForm().setActionListeners();
-                mf.actStartNewGame.actionPerformed(new ActionEvent(mf._mainFrame, ActionEvent.ACTION_PERFORMED, null));
+                if (!mf.isStateLoaded)
+                {
+                    mf.actStartNewGame.actionPerformed(new ActionEvent(mf._mainFrame, ActionEvent.ACTION_PERFORMED, null));
+                }
             }
         });
     }
     
     /**
-     * Конструктор главной формы
-     * */
+     * Конструктор главной формы - в т.ч. загружает сохранённое состояние игры
+     **/
     public MainForm()
     {
+        // загружаем сохранённое состояние Игры (если оно есть)
+        try
+        {
+            if (Files.exists(Paths.get(GAMESTATE_DAT_FILE_PATH)))
+            {
+                GameState.getCurrent(GAMESTATE_DAT_FILE_PATH);
+                isStateLoaded = true;
+            }
+        }
+        catch (RuntimeException ex)
+        {
+            JOptionPane.showMessageDialog(_mainFrame, "Ошибка загрузки состояния Игры\n Игра будет начата сначала!\n" +
+                ex, "Ошибка загрузки", JOptionPane.WARNING_MESSAGE);
+        }
         String progName = _pkg.getImplementationTitle() + "";
         _mainFrame.setTitle(progName.isEmpty() || progName.equalsIgnoreCase("null") ? "# Крестики-нолики" : progName);
         _mainFrame.setContentPane(pMain);
@@ -285,7 +307,7 @@ public class MainForm
         ButtonGroup bgSkins = new ButtonGroup();
         for (Skin skn : Skin.values())
         {
-            JRadioButtonMenuItem rb = new JRadioButtonMenuItem(skn.name(), skn == this.DEFAULT_LOOK_AND_FEEL);
+            JRadioButtonMenuItem rb = new JRadioButtonMenuItem(skn.name(), skn == DEFAULT_LOOK_AND_FEEL);
             rb.setToolTipText(skn.toolTip);
             rb.addItemListener(skinChangedMenuClickHandler);
             bgSkins.add(rb);
@@ -296,13 +318,13 @@ public class MainForm
         for (Object lvl : (IS_DEBUG ? AILevel.values() : Arrays.stream(AILevel.values()).skip(1).toArray()))
         {
             AILevel level = (AILevel)lvl;
-            JRadioButtonMenuItem rb = new JRadioButtonMenuItem(level.description, level == GameState.current.getAiLevel());
+            JRadioButtonMenuItem rb = new JRadioButtonMenuItem(level.description, level == GameState.getCurrent().getAiLevel());
             rb.addItemListener(aiLevelChangedMenuClickHandler);
             _bgAI.add(rb);
             mAILevels.add(rb);
         }
         _miChangeBoardSize = mOptions.add(changeBoardSizeClickHandler);
-        _miChangeBoardSize.setText(BOARD_SIZE_CAPTION_START + " " + GameState.current.getBoardSize() + "x" + GameState.current.getBoardSize());
+        _miChangeBoardSize.setText(BOARD_SIZE_CAPTION_START + " " + GameState.getCurrent().getBoardSize() + "x" + GameState.getCurrent().getBoardSize());
         JEditorPane txtAbout = new JEditorPane("text/html", ABOUT_TEXT);
         txtAbout.addHyperlinkListener(this.hyperlinkClickHandler);
         txtAbout.setEditable(false);
@@ -317,7 +339,6 @@ public class MainForm
                 JOptionPane.showMessageDialog((Component) e.getSource(), txtAbout, "О программе", JOptionPane.INFORMATION_MESSAGE);
             }
         });
-        //miniBar.add(miAbout);
         jf.setJMenuBar(miniBar);
     }
     
@@ -328,8 +349,8 @@ public class MainForm
     private MainForm setActionListeners()
     {
         // N.B. Здесь используется автогенерация экземпляра интерфейса с указанным методом
-        GameState.current.addStateChangeListener(this::gameStateChangedHandler);
-        // разрешаем таскать форму за любые не интерактивные элементы
+        GameState.getCurrent().addStateChangeListener(this::gameStateChangedHandler);
+        // разрешаем таскать форму за любые неинтерактивные элементы
         pMain.addMouseListener(this.mouseDownHandler);
         pMain.addMouseMotionListener(this.mouseDragHandler);
         
@@ -351,7 +372,7 @@ public class MainForm
      * */
     private void boardSizeUpdated()
     {
-        int bSize = GameState.current.getBoardSize();
+        int bSize = GameState.getCurrent().getBoardSize();
         _miChangeBoardSize.setText(BOARD_SIZE_CAPTION_START + " " + bSize + "x" + bSize);
         ((CrossGameTableModel)tableGameBoard.getModel()).fireTableStructureChanged();
         TableColumn cl = null;
@@ -379,7 +400,7 @@ public class MainForm
         @Override
         public void actionPerformed(ActionEvent e)
         {
-            List<Integer> history = GameState.current.getPlayerTurnsHistory();
+            List<Integer> history = GameState.getCurrent().getPlayerTurnsHistory();
             if (history.isEmpty())
             {
                 JOptionPane.showMessageDialog(tableGameBoard, "Игрок ещё не делал ходов - нечего отменять!",
@@ -388,12 +409,12 @@ public class MainForm
             }
             CrossGameTableModel tm = ((CrossGameTableModel)tableGameBoard.getModel());
             tm.clearCell(history.remove(history.size() - 1));
-            history = GameState.current.getCpuTurnsHistory();
+            history = GameState.getCurrent().getCpuTurnsHistory();
             if (!history.isEmpty())
             {
                 tm.clearCell(history.remove(history.size() - 1));
             }
-            GameState.current.setStarted(true);
+            GameState.getCurrent().setStarted(true);
             JOptionPane.showMessageDialog(tableGameBoard, "Можете сделать новый ход!", "Ход отменён",
                 JOptionPane.INFORMATION_MESSAGE);
         }
@@ -409,10 +430,10 @@ public class MainForm
         {
             final Object[] NEW_GAME_OPTIONS = new Object[] {GameState.X_SYMBOL, GameState.ZERO_SYMBOL,
                                                                     "<html>Как в прошлый раз: '<b>" +
-                                                                    GameState.current.getPlayerSymbol() + "</b>'</html>"
+                                                                    GameState.getCurrent().getPlayerSymbol() + "</b>'</html>"
             };
             int res = -1;
-            if (GameState.current.isStarted())
+            if (GameState.getCurrent().isStarted())
             {
                 res = JOptionPane.showConfirmDialog(_mainFrame, "Вы уверены, что хотите начать игру сначала?",
                         "Подтверждение", JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
@@ -421,7 +442,7 @@ public class MainForm
                     return;
                 }
             }
-            GameState.current.Reset();
+            GameState.getCurrent().Reset();
             res = JOptionPane.showOptionDialog(tableGameBoard, "<html>Выберите сторону ('<b>X</b>' ходит первым!)</html>",
                     "Начало игры", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE, null,
                     NEW_GAME_OPTIONS, GameState.X_SYMBOL);
@@ -432,11 +453,11 @@ public class MainForm
             char answer = NEW_GAME_OPTIONS[res].toString().charAt(0);
             if (answer == GameState.X_SYMBOL || answer == GameState.ZERO_SYMBOL)
             {
-                GameState.current.setPlayerSymbol(answer == GameState.X_SYMBOL);
+                GameState.getCurrent().setPlayerSymbol(answer == GameState.X_SYMBOL);
             }
-            if (GameState.current.getCpuSymbol() == GameState.X_SYMBOL)
+            if (GameState.getCurrent().getCpuSymbol() == GameState.X_SYMBOL)
             {
-                GameState.current.makeCpuTurn();
+                GameState.getCurrent().makeCpuTurn();
             }
         }
     };
@@ -456,15 +477,17 @@ public class MainForm
                     "Выход из игры", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION)
             {
                 // сохраняем состояние игры
-                try (ObjectOutputStream statSaver = new ObjectOutputStream(Files.newOutputStream(Paths.get("gamestate.dat"))))
+                try (GameState gameState = GameState.getCurrent(); ObjectOutputStream stateSaver = new ObjectOutputStream(
+                    Files.newOutputStream(Paths.get(GAMESTATE_DAT_FILE_PATH))))
                 {
-                    statSaver.writeObject(GameState.current);
+                    stateSaver.writeObject(gameState);
                 }
                 catch (Exception ex)
                 {
                     JOptionPane.showMessageDialog(_mainFrame, "Не удалось сохранить состояние игры: \n" +
                         ex.getMessage() + System.lineSeparator() + ex, "Ошибка", JOptionPane.ERROR_MESSAGE);
                     ex.printStackTrace();
+                    System.exit(-1);
                 }
                 System.exit(0);
             }
@@ -487,7 +510,7 @@ public class MainForm
             {
                 return;
             }
-            if (!GameState.current.isStarted())
+            if (!GameState.getCurrent().isStarted())
             {
                 int res = JOptionPane.showConfirmDialog(e.getComponent(), "Игра окончена - хотите начать новую?",
                         "Новая игра", JOptionPane.YES_NO_OPTION, JOptionPane.INFORMATION_MESSAGE);
@@ -503,35 +526,35 @@ public class MainForm
             {
                 System.out.println("[" + rowIndex + "][" + colIndex + "] clicked");
             }
-            if (!GameState.current.checkCoords(rowIndex, colIndex))
+            if (!GameState.getCurrent().checkCoords(rowIndex, colIndex))
             {
                 JOptionPane.showMessageDialog(e.getComponent(), "Эта клетка уже занята - выберите другую!",
                         "Этот ход невозможен", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            char ps = GameState.current.getPlayerSymbol();
+            char ps = GameState.getCurrent().getPlayerSymbol();
             tableGameBoard.setValueAt(ps, rowIndex, colIndex);
-            GameState.current.getPlayerTurnsHistory().add(GameState.Utils.convertCoordsToCellNumber(rowIndex, colIndex));
+            GameState.getCurrent().getPlayerTurnsHistory().add(GameState.Utils.convertCoordsToCellNumber(rowIndex, colIndex));
             if (IS_DEBUG)
             {
-                GameState.current.printBoard();
+                GameState.getCurrent().printBoard();
             }
-            if (GameState.current.checkWin(ps, rowIndex, colIndex))
+            if (GameState.getCurrent().checkWin(ps, rowIndex, colIndex))
             {
                 JOptionPane.showMessageDialog(e.getComponent(), "Победил Игрок", "Игра окончена",
                         JOptionPane.INFORMATION_MESSAGE);
             }
-            else if (GameState.current.noMoreWinMoves())
+            else if (GameState.getCurrent().noMoreWinMoves())
             {
                 JOptionPane.showMessageDialog(e.getComponent(), "Ничья - ходов больше нет!", "Игра окончена",
                         JOptionPane.INFORMATION_MESSAGE);
             }
-            else if (GameState.current.makeCpuTurn())
+            else if (GameState.getCurrent().makeCpuTurn())
             {
                 JOptionPane.showMessageDialog(e.getComponent(), "Победил ИИ", "Игра окончена",
                         JOptionPane.INFORMATION_MESSAGE);
             }
-            else if (GameState.current.noMoreWinMoves())
+            else if (GameState.getCurrent().noMoreWinMoves())
             {
                 JOptionPane.showMessageDialog(e.getComponent(), "Ничья - ходов больше нет!", "Игра окончена",
                     JOptionPane.INFORMATION_MESSAGE);
@@ -633,7 +656,7 @@ public class MainForm
             }
             else
             {
-                GameState.current.setAiLevel(lvl);
+                GameState.getCurrent().setAiLevel(lvl);
             }
         }
     };
@@ -729,9 +752,9 @@ public class MainForm
         }
         else if (e instanceof PlayerSymbolChangedEvent)
         {
-            boolean isPlayerXSymbol = GameState.current.getPlayerSymbol() == GameState.X_SYMBOL;
-            lbAISymbol.setText(String.valueOf(GameState.current.getCpuSymbol()));
-            lbPlayerSymbol.setText(String.valueOf(GameState.current.getPlayerSymbol()));
+            boolean isPlayerXSymbol = GameState.getCurrent().getPlayerSymbol() == GameState.X_SYMBOL;
+            lbAISymbol.setText(String.valueOf(GameState.getCurrent().getCpuSymbol()));
+            lbPlayerSymbol.setText(String.valueOf(GameState.getCurrent().getPlayerSymbol()));
             lbAISymbol.setForeground(isPlayerXSymbol ? RED_ZERO_COLOR : BLUE_X_COLOR);
             lbPlayerSymbol.setForeground(isPlayerXSymbol ? BLUE_X_COLOR : RED_ZERO_COLOR);
         }
