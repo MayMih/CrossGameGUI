@@ -3,6 +3,7 @@ package org.mmu.task7;
 import org.mmu.task7.aiengine.*;
 import org.mmu.task7.events.*;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.stream.IntStream;
 
@@ -11,7 +12,7 @@ import static org.mmu.task7.MainForm.IS_DEBUG;
 /**
  * Класс-синглтон текущего состояния игры
  * */
-public final class GameState
+public final class GameState implements Serializable
 {
     
     //region 'Типы данных'
@@ -151,32 +152,28 @@ public final class GameState
     
     //region 'Поля и константы'
     
-    public static final char X_SYMBOL = 'X', ZERO_SYMBOL = 'O', EMPTY_CELL_SYMBOL = ' ';
-    public static final int DEFAULT_BOARD_SIZE = 4;             //3
-    public static final GameState current = new GameState();
-    // ?! Похоже в Java статические поля инициализируется ПОСЛЕ полей экземпляра - вроде НЕТ ?!
-    public static final Random rand = new Random();
+    private static ArrayList<GameStateChangedEventListener> _listeners;
     
-    private final AILevel DEFAULT_AI_LEVEL = AILevel.AboveNormal;
+    public static final char X_SYMBOL = 'X', ZERO_SYMBOL = 'O', EMPTY_CELL_SYMBOL = ' ';
+    public static final int DEFAULT_BOARD_SIZE = 4;
+    public static final AILevel DEFAULT_AI_LEVEL = AILevel.AboveNormal;
+    public static final Random rand = new Random();
+    // порядок выполнения инициализаторов (в отличие от C#), см. здесь: https://intuit.ru/studies/higher_education/3406/courses/64/lecture/1886?page=3
+    public static final GameState current = new GameState();
     
     private AILevel aiLevel = DEFAULT_AI_LEVEL;
     private char playerSymbol = X_SYMBOL, cpuSymbol = ZERO_SYMBOL;
     private char[][] gameBoard = new char[DEFAULT_BOARD_SIZE][DEFAULT_BOARD_SIZE];
-    
     private boolean isStarted = false;
     private int boardSize = DEFAULT_BOARD_SIZE;
-    
     /**
      * Текущий выбранный движок ИИ
      */
-    private AICellNumberGenerator aiEngine;
-    
+    private transient AICellNumberGenerator aiEngine;
     /**
      * Списки ходов ПК и Игрока
      */
     private ArrayList<Integer> cpuTurnsHistory, playerTurnsHistory;
-    
-    private static ArrayList<GameStateChangedEventListener> _listeners;
     
     //endregion 'Поля и константы'
     
@@ -761,18 +758,7 @@ public final class GameState
             }
             return false;
         }
-        else if (gameBoard[rowIndex][columnIndex] == EMPTY_CELL_SYMBOL)
-        {
-            return true;
-        }
-        else
-        {
-//            if (IS_DEBUG)
-//            {
-//                System.out.printf("Эта клетка (%d; %d) уже занята - ход невозможен!%n", rowIndex, columnIndex);
-//            }
-            return false;
-        }
+        else return gameBoard[rowIndex][columnIndex] == EMPTY_CELL_SYMBOL;
     }
     
     /**
@@ -783,7 +769,7 @@ public final class GameState
         return getEmptyCellsInRegion(cellNumber / boardSize, cellNumber % boardSize);
     }
     /**
-     * Метод получения списка пустых клеток указанном в регионе (3 Х 3 относительно указанных координат)
+     * Метод получения списка пустых клеток в регионе (3 Х 3 относительно указанных координат)
      * */
     private List<Integer> getEmptyCellsInRegion(int rowNumber, int colNumber)
     {

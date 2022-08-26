@@ -84,16 +84,25 @@ public final class NormalAI implements AICellNumberGenerator
     {
         final List<Integer> cpuTurns = GameState.current.getCpuTurnsHistory();
         final List<Integer> playerTurns = GameState.current.getPlayerTurnsHistory();
-        if (cpuTurns.isEmpty())
+        //TODO: Возможно стоит даже первый ход делать не случайным образом, если уже есть ход Игрока?
+        //if (cpuTurns.isEmpty())
+        if (playerTurns.isEmpty())
         {
             return new AbstractMap.SimpleEntry<>(-1, -1L);
         }
-        // Класс-счётчик пустых клеток на линии (линия должна быть предварительно проверена
+        
+        // Класс-счётчик пустых клеток на линии
         class AvailableTurnsAnalyzer
         {
             // Ключ - номер свободной ячейки, Значение - кол-во свободных ячеек в строке/ряду/диагонали (содержит повторения)
             public final List<Map.Entry<Integer, Long>> ratedTurns = new ArrayList<>();
-        
+            /**
+             * Обновляет внутренний счётчик полезности ходов {@link #ratedTurns}
+             * @param cellNumber    № проверяемой ячейки
+             * @param ideal     "проект" идеальной линии построенной на базе указанной ячейки {@code cellNumber}
+             *
+             * @implSpec "Идеальная" линия {@code ideal} должна быть предварительно проверена на отсутствие клеток Игрока!
+             */
             private void updateTurnsAndScore(int cellNumber, IntStream ideal)
             {
                 long emptyCellsCount = ideal.filter(x -> !cpuTurns.contains(x)).count();
@@ -111,48 +120,50 @@ public final class NormalAI implements AICellNumberGenerator
         // если на диагоналях есть хотя бы одна клетка заполненная Игроком, то считаем эту диагональ уже проверенной (т.е. неподходящей)
         boolean isMainDiagChecked = GameState.Utils.getIdealMainDiag().anyMatch(playerTurns::contains);
         boolean isAuxDiagChecked = GameState.Utils.getIdealAuxDiag().anyMatch(playerTurns::contains);
-        // проверяем все ячейки в таблице
-        for (int i = 0; i < boardSize * boardSize; i++)
+        
+        // проверяем все ячейки в таблице и формируем список {ячейка, рейтинга полезности хода в неё}
+        
+        for (int cellNum = 0; cellNum < boardSize * boardSize; cellNum++)
         {
-            if (!GameState.current.checkCell(i))
+            if (!GameState.current.checkCell(cellNum))      // если клетка занята, сразу пропускаем её
             {
                 continue;
             }
-            final int rowNumber = GameState.Utils.getRowIndexFromCellNumber(i);
+            final int rowNumber = GameState.Utils.getRowIndexFromCellNumber(cellNum);
             // пытаемся получить случайную клетку из потенциально выигрышной строки
             if (!checkedRows.contains(rowNumber))
             {
-                // приходится два раза пересоздавать IntStream, т.к. к стримам в Java можно применять только одну терминальную операцию!
                 if (GameState.Utils.getIdealRow(rowNumber).noneMatch(playerTurns::contains))
                 {
-                    turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealRow(rowNumber));
+                    turnsAnalyzer.updateTurnsAndScore(cellNum, GameState.Utils.getIdealRow(rowNumber));
                 }
                 checkedRows.add(rowNumber);
             }
-            final int colNumber = GameState.Utils.getColumnIndexFromCellNumber(i);
+            final int colNumber = GameState.Utils.getColumnIndexFromCellNumber(cellNum);
             // пытаемся получить случайную клетку из потенциально выигрышного столбца
             if (!checkedCols.contains(colNumber))
             {
                 if (GameState.Utils.getIdealColumn(colNumber).noneMatch(playerTurns::contains))
                 {
-                    turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealColumn(colNumber));
+                    turnsAnalyzer.updateTurnsAndScore(cellNum, GameState.Utils.getIdealColumn(colNumber));
                 }
                 checkedCols.add(colNumber);
             }
             if (!isMainDiagChecked && GameState.Utils.isMainDiagCoords(rowNumber, colNumber))
             {
-                turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealMainDiag());
+                turnsAnalyzer.updateTurnsAndScore(cellNum, GameState.Utils.getIdealMainDiag());
                 isMainDiagChecked = true;
             }
             if (!isAuxDiagChecked && GameState.Utils.isAuxDiagCoords(rowNumber, colNumber))
             {
-                turnsAnalyzer.updateTurnsAndScore(i, GameState.Utils.getIdealAuxDiag());
+                turnsAnalyzer.updateTurnsAndScore(cellNum, GameState.Utils.getIdealAuxDiag());
                 isAuxDiagChecked = true;
             }
         }
-        // выбираем из списка доступных ходов ту клетку, которая имеет наименьшее кол-во пустых клеток на линии
-        Optional<Map.Entry<Integer, Long>> opt = turnsAnalyzer.ratedTurns.stream().min(Map.Entry.comparingByValue());
-        long minValue = opt.isPresent() ? opt.get().getValue() : -1;
+        
+        // выбираем из списка доступных ходов ту клетку, которая имеет наименьшее кол-во пустых клеток на линии (лучший рейтинг полезности хода)
+        Optional<Map.Entry<Integer, Long>> optMin = turnsAnalyzer.ratedTurns.stream().min(Map.Entry.comparingByValue());
+        long minValue = optMin.isPresent() ? optMin.get().getValue() : -1;
         if (isGetMultilineWinCell)
         {
             // выбираем из списка записи с минимальным рейтингом и ищем среди них тот номер клетки, что встречается
@@ -165,7 +176,7 @@ public final class NormalAI implements AICellNumberGenerator
         }
         else
         {
-            return new AbstractMap.SimpleEntry<>(opt.isPresent() ? opt.get().getKey() : -1, minValue);
+            return new AbstractMap.SimpleEntry<>(optMin.isPresent() ? optMin.get().getKey() : -1, minValue);
         }
     }
     

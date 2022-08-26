@@ -1,4 +1,7 @@
 ### Java template
+# Binary giles
+*.dat
+
 # Compiled class file
 *.class
 

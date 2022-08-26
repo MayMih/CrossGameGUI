@@ -10,8 +10,12 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumn;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.FileOutputStream;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -442,12 +446,26 @@ public class MainForm
      * */
     private final Action actExitProgram = new AbstractAction("Выход")
     {
+        /**
+         * При выходе сохраняет текущее состояние Игры
+         */
         @Override
         public void actionPerformed(ActionEvent e)
         {
-            if (IS_DEBUG || JOptionPane.showConfirmDialog(_mainFrame, "Вы уверены, что хотите выйти?",
+            if (IS_DEBUG || JOptionPane.showConfirmDialog(_mainFrame, "Вы уверены, что хотите выйти (состояние игры будет сохранено)?",
                     "Выход из игры", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.OK_OPTION)
             {
+                // сохраняем состояние игры
+                try (ObjectOutputStream statSaver = new ObjectOutputStream(Files.newOutputStream(Paths.get("gamestate.dat"))))
+                {
+                    statSaver.writeObject(GameState.current);
+                }
+                catch (Exception ex)
+                {
+                    JOptionPane.showMessageDialog(_mainFrame, "Не удалось сохранить состояние игры: \n" +
+                        ex.getMessage() + System.lineSeparator() + ex, "Ошибка", JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                }
                 System.exit(0);
             }
         }
