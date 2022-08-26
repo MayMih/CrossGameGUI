@@ -222,6 +222,48 @@ public final class GameState implements Serializable, AutoCloseable
      */
     private AICellNumberGenerator getAiEngine()
     {
+        switch (aiLevel)
+        {
+            case Stupid:
+            {
+                aiEngine = StupidAI.instance;
+                break;
+            }
+            case Low:
+            {
+                aiEngine = LowAI.instance;
+                break;
+            }
+            case BelowNormal:
+            {
+                aiEngine = BelowNormalAI.instance;
+                break;
+            }
+            case Normal:
+            {
+                aiEngine = NormalAI.instance;
+                break;
+            }
+            case AboveNormal:
+            {
+                aiEngine = AboveNormalAI.instance;
+                break;
+            }
+            case Unknown:
+            {
+                aiEngine = null;
+                // при неизвестном уровне интеллекта - пропуск хода ("мозг отсутствует")
+                if (IS_DEBUG)
+                {
+                    System.out.println("DEBUG: CPU opponent has been turned off");
+                }
+            }
+            default:
+            {
+                aiEngine = null;
+                throw new IllegalArgumentException("Неизвестный уровень ИИ - " + aiLevel);
+            }
+        }
         return aiEngine;
     }
     
@@ -263,56 +305,10 @@ public final class GameState implements Serializable, AutoCloseable
      */
     public synchronized void setAiLevel(AILevel aiLevel)
     {
-        boolean aiLevelHasChanged = this.aiLevel != aiLevel;
-        if (aiLevelHasChanged || aiEngine == null)
+        if (this.aiLevel != aiLevel)
         {
-            switch (aiLevel)
-            {
-                case Stupid:
-                {
-                    aiEngine = StupidAI.instance;
-                    break;
-                }
-                case Low:
-                {
-                    aiEngine = LowAI.instance;
-                    break;
-                }
-                case BelowNormal:
-                {
-                    aiEngine = BelowNormalAI.instance;
-                    break;
-                }
-                case Normal:
-                {
-                    aiEngine = NormalAI.instance;
-                    break;
-                }
-                case AboveNormal:
-                {
-                    aiEngine = AboveNormalAI.instance;
-                    break;
-                }
-                case Unknown:
-                {
-                    aiEngine = null;
-                    // при неизвестном уровне интеллекта - пропуск хода ("мозг отсутствует")
-                    if (IS_DEBUG)
-                    {
-                        System.out.println("DEBUG: CPU opponent has been turned off");
-                    }
-                }
-                default:
-                {
-                    aiEngine = null;
-                    throw new IllegalArgumentException("Неизвестный уровень ИИ - " + aiLevel);
-                }
-            }
-            if (aiLevelHasChanged)
-            {
-                this.aiLevel = aiLevel;
-                fireGameStateChangedEvent(new AILevelChangedEvent(this, aiLevel));
-            }
+            this.aiLevel = aiLevel;
+            fireGameStateChangedEvent(new AILevelChangedEvent(this, aiLevel));
         }
     }
     
@@ -525,7 +521,7 @@ public final class GameState implements Serializable, AutoCloseable
     
     
     /**
-     * Метод заполнения квадратного массива указанной размерности, заполоненного пустым символов '□'
+     * Метод заполнения квадратного массива указанной размерности, заполоненного пустым символов {@link #EMPTY_CELL_SYMBOL}
      */
     private void initBoard()
     {

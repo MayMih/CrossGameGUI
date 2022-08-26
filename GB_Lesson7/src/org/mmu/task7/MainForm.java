@@ -233,14 +233,14 @@ public class MainForm
         _mainFrame.setMinimumSize(new Dimension(400, 200));
         try
         {
-            ImageIcon img = new ImageIcon(Objects.requireNonNull(getClass().getResource(ICON_FILE_RESOURCE_NAME)));
+            final ImageIcon img = new ImageIcon(Objects.requireNonNull(getClass().getResource(ICON_FILE_RESOURCE_NAME)));
             _mainFrame.setIconImage(img.getImage());
         }
         catch (Exception ex)
         {
             System.err.println("Не найден ресурс: " + ICON_FILE_RESOURCE_NAME);
         }
-        createMainMenuFor(_mainFrame);
+        createMainMenuFor(_mainFrame);                              // здесь есть обращение к синглтону Игры
         tableGameBoard.setModel(new CrossGameTableModel());
         tableGameBoard.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         tableGameBoard.setAutoCreateColumnsFromModel(true);
@@ -273,7 +273,7 @@ public class MainForm
         }
         tableGameBoard.setDefaultRenderer(Object.class, new CenterColouredRenderer());
         
-        ((CrossGameTableModel)tableGameBoard.getModel()).setSize(GameState.DEFAULT_BOARD_SIZE);
+        ((CrossGameTableModel)tableGameBoard.getModel()).setSize(GameState.getCurrent().getBoardSize());
         tableGameBoard.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         boardSizeUpdated();
         lbAICaption.setMinimumSize(lbPlayerCaption.getSize());
@@ -480,6 +480,12 @@ public class MainForm
                 try (GameState gameState = GameState.getCurrent(); ObjectOutputStream stateSaver = new ObjectOutputStream(
                     Files.newOutputStream(Paths.get(GAMESTATE_DAT_FILE_PATH))))
                 {
+                    if (!gameState.isStarted())
+                    {
+                        // перед сохранением сбрасываем состояние Игры, если она находится в состоянии из которого Не может
+                        // быть продолжена
+                        gameState.Reset();
+                    }
                     stateSaver.writeObject(gameState);
                 }
                 catch (Exception ex)
