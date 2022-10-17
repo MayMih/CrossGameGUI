@@ -21,7 +21,9 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Objects;
 
-
+/**
+ * Класс Главной (и единственной) формы приложения
+ */
 public class MainForm
 {
     
@@ -118,9 +120,9 @@ public class MainForm
     //endregion 'Поля и константы'
     
     
-    
-    
-    // Статический инициализатор - задаёт текст окна "О программе" и локализацию для кнопок диалоговых окон {@link #javax.swing.JOptionPane}
+    /**
+     *  Статический инициализатор - задаёт текст окна "О программе" и локализацию для кнопок диалоговых окон {@link #javax.swing.JOptionPane}
+     */
     static
     {
         IS_DEBUG = false;
@@ -145,8 +147,7 @@ public class MainForm
     {
         if (Arrays.stream(args).anyMatch(x -> {
             String arg = x.trim();
-            return (arg.startsWith("-") || arg.startsWith("/")) && (x.trim().endsWith("debug") ||
-                    x.trim().endsWith("d"));
+            return (arg.startsWith("-") || arg.startsWith("/")) && (x.trim().endsWith("debug") || x.trim().endsWith("d"));
         }))
         {
             IS_DEBUG = true;
@@ -227,7 +228,7 @@ public class MainForm
         String progName = _pkg.getImplementationTitle() + "";
         _mainFrame.setTitle(progName.isEmpty() || progName.equalsIgnoreCase("null") ? "# Крестики-нолики" : progName);
         _mainFrame.setContentPane(pMain);
-        // по умолчанию при закрытии ничего не делаем, вроде как это нужно для того, чтобы можно было отобразить запрос
+        // по умолчанию при закрытии ничего не делаем - это нужно для того, чтобы можно было отобразить запрос к юзеру.
         _mainFrame.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         _mainFrame.setLocationByPlatform(true);
         _mainFrame.setMinimumSize(new Dimension(400, 200));
@@ -240,7 +241,7 @@ public class MainForm
         {
             System.err.println("Не найден ресурс: " + ICON_FILE_RESOURCE_NAME);
         }
-        createMainMenuFor(_mainFrame);                              // здесь есть обращение к синглтону Игры
+        createMainMenuFor(_mainFrame);                              // ОСТОРОЖНО: здесь есть обращение к синглтону Игры
         tableGameBoard.setModel(new CrossGameTableModel());
         tableGameBoard.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         tableGameBoard.setAutoCreateColumnsFromModel(true);
@@ -275,7 +276,7 @@ public class MainForm
         
         ((CrossGameTableModel)tableGameBoard.getModel()).setSize(GameState.getCurrent().getBoardSize());
         tableGameBoard.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        boardSizeUpdated();
+        this.onBoardSizeUpdated();
         lbAICaption.setMinimumSize(lbPlayerCaption.getSize());
         _mainFrame.pack();
         _mainFrame.setVisible(true);
@@ -324,7 +325,8 @@ public class MainForm
             mAILevels.add(rb);
         }
         _miChangeBoardSize = mOptions.add(changeBoardSizeClickHandler);
-        _miChangeBoardSize.setText(BOARD_SIZE_CAPTION_START + " " + GameState.getCurrent().getBoardSize() + "x" + GameState.getCurrent().getBoardSize());
+        final String bSize = String.valueOf(GameState.getCurrent().getBoardSize());
+        _miChangeBoardSize.setText(BOARD_SIZE_CAPTION_START + " " + bSize + "x" + bSize);
         JEditorPane txtAbout = new JEditorPane("text/html", ABOUT_TEXT);
         txtAbout.addHyperlinkListener(this.hyperlinkClickHandler);
         txtAbout.setEditable(false);
@@ -344,16 +346,19 @@ public class MainForm
     
     /**
      * Метод навешивания обработчиков на все элементы формы после запуска GUI
+     *
      * @return Текущий экземпляр класса формы "code behind" - НЕ создаёт его - нужно для цепочечных операций.
      * */
     private MainForm setActionListeners()
     {
-        // N.B. Здесь используется автогенерация экземпляра интерфейса с указанным методом
+        // N.B. Этот т.н. "Указатель на метод" по сути является "синтаксическим сахаром" - на самом деле здесь
+        //      используется автогенерация экземпляра интерфейса с указанным методом (поэтому, например, сюда нельзя
+        //      передать метод пробрасывающий checked exception).
         GameState.getCurrent().addStateChangeListener(this::gameStateChangedHandler);
-        // разрешаем таскать форму за любые неинтерактивные элементы
+        // разрешаем таскать форму за любые не интерактивные элементы
         pMain.addMouseListener(this.mouseDownHandler);
         pMain.addMouseMotionListener(this.mouseDragHandler);
-        
+        // навешиваем обработчик закрытия формы (с подтверждением закрытия от юзера)
         _mainFrame.addWindowListener(new WindowAdapter()
         {
             @Override
@@ -362,15 +367,14 @@ public class MainForm
                 actExitProgram.actionPerformed(new ActionEvent(_mainFrame, ActionEvent.ACTION_PERFORMED, null));
             }
         });
-        
         tableGameBoard.addMouseListener(tableDoubleClickHandler);
         return this;
     }
     
     /**
-     * Метод обновления экрана после изменения размера игрового Поля
+     * Метод обновления экрана после изменения размера игрового Поля - в т.ч. заставляет {@link JTable} перерисовать себя.
      * */
-    private void boardSizeUpdated()
+    private void onBoardSizeUpdated()
     {
         int bSize = GameState.getCurrent().getBoardSize();
         _miChangeBoardSize.setText(BOARD_SIZE_CAPTION_START + " " + bSize + "x" + bSize);
@@ -381,6 +385,7 @@ public class MainForm
             cl = cols.nextElement();
             cl.setPreferredWidth(cl.getMinWidth() * 2);
         }
+        assert cl != null;
         tableGameBoard.setRowHeight(cl.getMinWidth() * 2);
         _mainFrame.pack();
     }
@@ -421,7 +426,7 @@ public class MainForm
     };
     
     /**
-     * Действие - "Новая игра"
+     * Действие - "Новая игра" - может приводить к ходу ПК (если игрок выбрал "0" в качестве своего символа)
      * */
     private final Action actStartNewGame = new AbstractAction("Новая игра")
     {
@@ -450,7 +455,7 @@ public class MainForm
             {
                 res = NEW_GAME_OPTIONS.length - 1;
             }
-            char answer = NEW_GAME_OPTIONS[res].toString().charAt(0);
+            final char answer = NEW_GAME_OPTIONS[res].toString().charAt(0);
             if (answer == GameState.X_SYMBOL || answer == GameState.ZERO_SYMBOL)
             {
                 GameState.getCurrent().setPlayerSymbol(answer == GameState.X_SYMBOL);
@@ -501,7 +506,7 @@ public class MainForm
     };
     
     /**
-     * Обработчик клика на ячейку - производит ход игрока, затем проверяет, остались ли ходы и делает ход ПК.
+     * Обработчик клика на ячейку - производит ход игрока, затем проверяет, остались ли ходы и если есть - делает ход ПК.
      *
      * @implNote  Обрабатывается именно двойной клик, т.к. с одиночным были проблемы - иногда просто выделялась ячейка,
      *      но события клика не было.
@@ -526,11 +531,11 @@ public class MainForm
                 }
                 return;
             }
-            int rowIndex = tableGameBoard.getSelectedRow();
-            int colIndex = tableGameBoard.getSelectedColumn();
+            final int rowIndex = tableGameBoard.getSelectedRow();
+            final int colIndex = tableGameBoard.getSelectedColumn();
             if (IS_DEBUG)
             {
-                System.out.println("[" + rowIndex + "][" + colIndex + "] clicked");
+                System.out.println("[" + (rowIndex + 1) + "][" + (colIndex + 1) + "] clicked");
             }
             if (!GameState.getCurrent().checkCoords(rowIndex, colIndex))
             {
@@ -538,9 +543,9 @@ public class MainForm
                         "Этот ход невозможен", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            char ps = GameState.getCurrent().getPlayerSymbol();
+            final char ps = GameState.getCurrent().getPlayerSymbol();
             tableGameBoard.setValueAt(ps, rowIndex, colIndex);
-            GameState.getCurrent().getPlayerTurnsHistory().add(GameState.Utils.convertCoordsToCellNumber(rowIndex, colIndex));
+            GameState.getCurrent().getPlayerTurnsHistory().add(BoardUtils.convertCoordsToCellNumber(rowIndex, colIndex));
             if (IS_DEBUG)
             {
                 GameState.getCurrent().printBoard();
@@ -587,7 +592,7 @@ public class MainForm
     };
     
     /**
-     * Обработчик меню изменения размера Поля
+     * Обработчик пункта меню "Изменить размер Поля"
     * */
     private final Action changeBoardSizeClickHandler = new AbstractAction()
     {
@@ -687,8 +692,7 @@ public class MainForm
             }
             catch (Exception ex)
             {
-                String mes = MessageFormat.format("Смена скина невозможна (подробности в консоли): {0}{1}",
-                        System.lineSeparator(), ex);
+                String mes = MessageFormat.format("Смена скина невозможна (подробности в консоли): \n {1}", ex);
                 System.err.println(mes);
                 System.err.println();
                 ex.printStackTrace();
@@ -741,7 +745,7 @@ public class MainForm
     {
         if (e instanceof BoardSizeChangedEvent)
         {
-            this.boardSizeUpdated();
+            this.onBoardSizeUpdated();
         }
         else if (e instanceof AILevelChangedEvent)
         {
@@ -753,12 +757,13 @@ public class MainForm
                 if (!ab.isSelected() && (ab instanceof JRadioButtonMenuItem) && ab.getText().equalsIgnoreCase(lvl.description))
                 {
                     ab.setSelected(true);
+                    break;
                 }
             }
         }
         else if (e instanceof PlayerSymbolChangedEvent)
         {
-            boolean isPlayerXSymbol = GameState.getCurrent().getPlayerSymbol() == GameState.X_SYMBOL;
+            final boolean isPlayerXSymbol = GameState.getCurrent().getPlayerSymbol() == GameState.X_SYMBOL;
             lbAISymbol.setText(String.valueOf(GameState.getCurrent().getCpuSymbol()));
             lbPlayerSymbol.setText(String.valueOf(GameState.getCurrent().getPlayerSymbol()));
             lbAISymbol.setForeground(isPlayerXSymbol ? RED_ZERO_COLOR : BLUE_X_COLOR);
@@ -766,7 +771,7 @@ public class MainForm
         }
         else if (e instanceof CpuTurnCompletedEvent)
         {
-            CpuTurnCompletedEvent ctc =  ((CpuTurnCompletedEvent) e);
+            CpuTurnCompletedEvent ctc = ((CpuTurnCompletedEvent) e);
             tableGameBoard.setValueAt(lbAISymbol.getText(), ctc.rowIndex, ctc.colIndex);
         }
     }

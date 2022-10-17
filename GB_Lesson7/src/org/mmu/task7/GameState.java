@@ -8,7 +8,6 @@ import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.IntStream;
 
 import static org.mmu.task7.MainForm.IS_DEBUG;
 
@@ -17,176 +16,13 @@ import static org.mmu.task7.MainForm.IS_DEBUG;
  */
 public final class GameState implements Serializable, AutoCloseable
 {
+    
+    //region 'Поля и константы'
+    
     /**
      * Версия объекта - нужно менять при каждом изменении состава полей, иначе могут быть проблемы при десериализации!
      */
     private static final long serialVersionUID = 1L;
-    
-    /**
-     * При закрытии игры очищаем список слушателей событий
-     */
-    @Override
-    public void close() throws Exception
-    {
-        _listeners.clear();
-    }
-    
-    
-    //region 'Типы данных'
-    
-    /**
-     * Событие изменения состояния Игры
-     */
-    public interface GameStateChangedEventListener extends EventListener
-    {
-        void handleEvent(GameStateChangedEventBase evt);
-    }
-    
-    /**
-     * Вспомогательный класс с методами для преобразования номера строки и столбца в номер ячейки и наоборот
-     */
-    public static final class Utils
-    {
-        // прячем конструктор от внешнего кода, т.к. в Java можно создавать
-        // экземпляры вложенных статических классов! То, что класс помечен спецификатором static, в данном случае значит
-        // лишь то, что его экземпляры могут быть созданы Без создания экземпляра класса-родителя (GameState)
-        private Utils()
-        {
-        }
-        
-        public static int[] convertCellNumberToCoords(int number)
-        {
-            return new int[] {number / current.boardSize, number % current.boardSize};
-        }
-        
-        public static int convertCoordsToCellNumber(int rowIndex, int columnIndex)
-        {
-            return rowIndex * current.boardSize + columnIndex;
-        }
-        
-        public static int getRowIndexFromCellNumber(int cellNumber)
-        {
-            return cellNumber / current.boardSize;
-        }
-        
-        public static int getColumnIndexFromCellNumber(int cellNumber)
-        {
-            return cellNumber % current.boardSize;
-        }
-        
-        /**
-         * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
-         *
-         * @param cellNumber Номер выигрышной строки, которую нужно сгенерировать
-         *
-         * @return Идеальный набор ячеек
-         *
-         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
-         */
-        public static IntStream getIdealRowForCellNumber(int cellNumber)
-        {
-            return getIdealRow(getRowIndexFromCellNumber(cellNumber));
-        }
-        
-        /**
-         * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
-         *
-         * @param rowNumber Координата выигрышной строки, которую нужно сгенерировать
-         *
-         * @return Идеальный набор ячеек
-         *
-         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
-         */
-        public static IntStream getIdealRow(int rowNumber)
-        {
-            return IntStream.iterate(convertCoordsToCellNumber(rowNumber, 0), x -> x + 1).limit(current.getBoardSize());
-        }
-        
-        /**
-         * Метод получения идеального набора ячеек, приводящего к победе по строке, содержащей указанную ячейку
-         *
-         * @param collNumber Координата выигрышного столбца, который нужно сгенерировать
-         *
-         * @return Идеальный набор ячеек
-         *
-         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
-         */
-        public static IntStream getIdealColumn(int collNumber)
-        {
-            final int board_size = current.boardSize;
-            return IntStream.iterate(convertCoordsToCellNumber(0, collNumber), x -> x + board_size).limit(board_size);
-        }
-        
-        /**
-         * Метод получения идеального набора ячеек, приводящего к победе по главной диагонали, содержащей указанную ячейку
-         *
-         * @return Идеальный набор ячеек
-         *
-         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
-         */
-        public static IntStream getIdealMainDiag()
-        {
-            final int board_size = current.boardSize;
-            // Наблюдение: номера ячеек на главной диагонали отличаются на (N + 1)
-            return IntStream.iterate(0, x -> x + board_size + 1).limit(board_size);
-        }
-        
-        /**
-         * Метод получения идеального набора ячеек, приводящего к победе по побочной диагонали, содержащей указанную ячейку
-         *
-         * @return Идеальный набор ячеек
-         *
-         * @apiNote ВНИМАНИЕ: "идеальная" последовательность будет содержать в т.ч. и Занятые ячейки!
-         */
-        public static IntStream getIdealAuxDiag()
-        {
-            final int board_size = current.boardSize;
-            // Наблюдение: номера ячеек на побочной диагонали отличаются на (N - 1)
-            return IntStream.iterate(board_size - 1, x -> x + board_size - 1).limit(board_size);
-        }
-        
-        /**
-         * Метод проверки того, являются ли клетки <b>родственными</b>, т.е. есть ли у них совпадающие к-ты строки или столбца
-         *
-         * @param cellA - первая проверяемая ячейка
-         * @param cellB - вторая проверяемая ячейка
-         *
-         * @return Признак того, принадлежать ли ячейки одной строке/столбцу
-         */
-        public static boolean isSiblingRowCells(int cellA, int cellB)
-        {
-            int[] c1 = convertCellNumberToCoords(cellA);
-            int[] c2 = convertCellNumberToCoords(cellB);
-            return c1[0] == c2[0] || c1[1] == c2[1];
-        }
-        
-        public static boolean isSameRowCells(int cellA, int cellB)
-        {
-            return getRowIndexFromCellNumber(cellA) == getColumnIndexFromCellNumber(cellB);
-        }
-        
-        public static boolean isSameColCells(Integer cellA, Integer cellB)
-        {
-            return getColumnIndexFromCellNumber(cellA) == getColumnIndexFromCellNumber(cellB);
-        }
-        
-        public static boolean isMainDiagCoords(int rowNumber, int colNumber)
-        {
-            return colNumber == rowNumber;
-        }
-        
-        public static boolean isAuxDiagCoords(int rowNumber, int colNumber)
-        {
-            return (colNumber + rowNumber) == (current.boardSize - 1);
-        }
-    }
-    
-    //endregion 'Типы данных'
-    
-    
-    
-    
-    //region 'Поля и константы'
     
     private static final ArrayList<GameStateChangedEventListener> _listeners = new ArrayList<>();
     public static final char X_SYMBOL = 'X', ZERO_SYMBOL = 'O', EMPTY_CELL_SYMBOL = ' ';
@@ -428,21 +264,30 @@ public final class GameState implements Serializable, AutoCloseable
     /**
      * Метод получения синглтона состояния Игры
      */
-    public static synchronized GameState getCurrent()
+    public static GameState getCurrent()
     {
         return getCurrent("");
     }
     
     /**
+     * При закрытии игры очищаем список слушателей событий
+     */
+    @Override
+    public void close() throws Exception
+    {
+        _listeners.clear();
+    }
+    
+    /**
      * Метод получения синглтона состояния Игры
      *
-     * @param serializedStatеFilePath Путь к файлу с сериализованным состоянием игры
+     * @param serializedStatеFilePath Путь к файлу с сериализованным состоянием игры.
      *
      * @return Экземпляр объекта состояния игры загруженный из файла или текущий экземпляр, если он уже создан!
      *
      * @exception RuntimeException Если загрузка не удалась
      */
-    public static synchronized GameState getCurrent(String serializedStatеFilePath)
+    public static GameState getCurrent(String serializedStatеFilePath)
     {
         if (current != null)
         {
@@ -470,7 +315,7 @@ public final class GameState implements Serializable, AutoCloseable
     /**
      * Метод сброса игры - проставляет признак того, что игра началась (см.: {@link #isStarted()})
      */
-    public synchronized void Reset()
+    public void Reset()
     {
         getCpuTurnsHistory().clear();           // здесь может произойти бесполезное создание списка, если его ещё не было,
         getPlayerTurnsHistory().clear();        // что вполне нормально для малых сложностей ИИ
@@ -552,73 +397,23 @@ public final class GameState implements Serializable, AutoCloseable
     }
     
     /**
-     * Метод проверки признака победы - проверяет нет ли такой линии или диагонали, что полностью заполнена указанным
-     * символом.
-     *
-     * @deprecated Неоптимальная устаревшая версия - каждый раз сканирует всю таблицу - по возможности используйте {@link #checkWin(char, int, int)}
-     */
-    private boolean checkWin(char targetSymbol)
-    {
-        boolean isWinFound = false;
-        
-        // сначала проверяем диагонали (но только, если там есть хотя бы один нужный символ - иначе нет смысла)
-        
-        if ((gameBoard[0][0] == targetSymbol) || (gameBoard[0][boardSize - 1] == targetSymbol))
-        {
-            boolean isMainFault = false, isAuxFault = false;
-            // сканируем сразу обе диагонали, пока не наткнёмся на несовпадение в обоих диагоналях
-            for (int i = 0; i < boardSize && (!isAuxFault || !isMainFault); i++)
-            {
-                if (!isMainFault)
-                {
-                    isMainFault = (gameBoard[i][i] != targetSymbol);
-                }
-                if (!isAuxFault)
-                {
-                    isAuxFault = gameBoard[i][boardSize - 1 - i] != targetSymbol;
-                }
-            }
-            isWinFound = !isMainFault || !isAuxFault;
-        }
-        
-        // если нет победы по диагоналям, она ещё может быть по строкам или по столбцам
-        
-        for (int i = 0; i < boardSize && !isWinFound; i++)
-        {
-            boolean isRowFault = false, isColFault = false;
-            // проверяем сразу очередные строку и столбец, условие прекращения - несовпадение и по строке, и по столбцу
-            for (int j = 0; j < boardSize && (!isRowFault || !isColFault); j++)
-            {
-                if (!isRowFault)
-                {
-                    isRowFault = (gameBoard[i][j] != targetSymbol);
-                }
-                if (!isColFault)
-                {
-                    isColFault = (gameBoard[j][i] != targetSymbol);
-                }
-            }
-            isWinFound = !isRowFault || !isColFault;
-        }
-        return isWinFound;
-    }
-    
-    /**
      * Метод проверки признака победы (оптимизированная версия)
      *
      * @apiNote Устанавливает {@link #isStarted()}
+     *
      * @implNote сканирует только одну строку и столбец и возможно одну из диагоналей
      */
     private boolean checkWin(char symbol, int cellNumber)
     {
-        return checkWin(symbol, Utils.getRowIndexFromCellNumber(cellNumber), Utils.getColumnIndexFromCellNumber(cellNumber));
+        return checkWin(symbol, BoardUtils.getRowIndexFromCellNumber(cellNumber), BoardUtils.getColumnIndexFromCellNumber(cellNumber));
     }
     
     /**
      * Метод проверки признака победы (оптимизированная версия)
      *
      * @apiNote Устанавливает {@link #isStarted()}
-     * @implNote сканирует только одну строку и столбец и возможно одну из диагоналей
+     *
+     * @implNote Сканирует только одну строку и столбец и возможно одну из диагоналей
      */
     public boolean checkWin(char targetSymbol, int rowIndex, int colIndex)
     {
@@ -669,6 +464,7 @@ public final class GameState implements Serializable, AutoCloseable
      *
      * @implSpec ОСТОРОЖНО: перед вызовом данного метода нужна обязательная проверка на наличие свободных клеток (см.:
      *     {@link #noMoreWinMoves()}), иначе возможно зацикливание.
+     *
      * @implNote Сбрасывает признак запуска игры {@link #isStarted()}, т.к. содержит вызов {@link #checkWin(char, int, int)}
      */
     public boolean makeCpuTurn()
@@ -682,7 +478,7 @@ public final class GameState implements Serializable, AutoCloseable
         }
         int cellNumber = getAiEngine().generateCellNumber();
         // Хотя это действие нужно только для сложных уровней ИИ, но, если Игрок захочет изменить уровень сложности, то
-        //  к этому моменту нужно будет иметь историю ходов ПК.
+        //  к этому моменту нужно будет иметь историю ходов ПК, кроме того, История нужна для работы функции Отмены хода.
         getCpuTurnsHistory().add(cellNumber);
         setSymbolAt(cellNumber, cpuSymbol);
         if (IS_DEBUG)
@@ -697,7 +493,8 @@ public final class GameState implements Serializable, AutoCloseable
      * Метод ищет пустые клетки (и линии не заполненные сразу двумя игроками), если таковых нет, возвращает True
      *
      * @implNote Сбрасывает признак запуска игры {@link #isStarted()}, если ходов больше нет.
-     * @implSpec Имеет смысл только, если предварительно было проверено условие победы ({@link #checkWin(char)}).
+     *
+     * @implSpec Имеет смысл только, если предварительно было проверено условие победы ({@link #checkWin}).
      */
     public boolean noMoreWinMoves()
     {
@@ -808,8 +605,8 @@ public final class GameState implements Serializable, AutoCloseable
      */
     public boolean checkCell(int cellNumber)
     {
-        int rowIndex = Utils.getRowIndexFromCellNumber(cellNumber);
-        int colIndex = Utils.getColumnIndexFromCellNumber(cellNumber);
+        int rowIndex = BoardUtils.getRowIndexFromCellNumber(cellNumber);
+        int colIndex = BoardUtils.getColumnIndexFromCellNumber(cellNumber);
         return checkCoords(rowIndex, colIndex);
     }
     
@@ -838,7 +635,7 @@ public final class GameState implements Serializable, AutoCloseable
     }
     
     /**
-     * Метод получения списка пустых клеток указанном в регионе (3 Х 3 относительно указанной клетки)
+     * Метод получения списка пустых клеток в указанном регионе (3 Х 3 относительно указанной клетки)
      */
     public List<Integer> getEmptyCellsInRegion(int cellNumber)
     {
@@ -867,7 +664,7 @@ public final class GameState implements Serializable, AutoCloseable
                 }
                 if (gameBoard[i][j] == EMPTY_CELL_SYMBOL)
                 {
-                    result.add(Utils.convertCoordsToCellNumber(i, j));
+                    result.add(BoardUtils.convertCoordsToCellNumber(i, j));
                 }
             }
         }
@@ -903,7 +700,7 @@ public final class GameState implements Serializable, AutoCloseable
                 }
                 if (gameBoard[i][j] == EMPTY_CELL_SYMBOL)
                 {
-                    if (ignoredCells != null && ignoredCells.contains(Utils.convertCoordsToCellNumber(i, j)))
+                    if (ignoredCells != null && ignoredCells.contains(BoardUtils.convertCoordsToCellNumber(i, j)))
                     {
                         continue;
                     }

@@ -7,7 +7,7 @@ package org.mmu.task7.aiengine;
  *              возможность помешать противнику, кроме ситуации, когда игроку осталась одна клетка до победы)
  *
  */
-public class AboveNormalAI implements AICellNumberGenerator
+public final class AboveNormalAI implements AICellNumberGenerator
 {
     public static final AboveNormalAI instance = new AboveNormalAI();
     
@@ -17,5 +17,11 @@ public class AboveNormalAI implements AICellNumberGenerator
     public int generateCellNumber()
     {
         return NormalAI.instance.generateCellNumber(true, true);
+    }
+    
+    @Override
+    public int getAsInt()
+    {
+        return generateCellNumber();
     }
 }

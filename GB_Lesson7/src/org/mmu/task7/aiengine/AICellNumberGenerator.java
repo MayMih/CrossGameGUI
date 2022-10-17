@@ -1,9 +1,11 @@
 package org.mmu.task7.aiengine;
 
+import java.util.function.IntSupplier;
+
 /**
- * TODO: подумать - нужен ли вообще это интерфейс, т.к. по сути это обычный {@link java.util.function.IntSupplier}
+ * Обёртка вокруг {@link java.util.function.IntSupplier}, чтобы предоставить более "красивое" имя метода.
  */
-public interface AICellNumberGenerator
+public interface AICellNumberGenerator extends IntSupplier
 {
     int generateCellNumber();
 }

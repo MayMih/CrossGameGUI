@@ -1,5 +1,6 @@
 package org.mmu.task7.aiengine;
 
+import org.mmu.task7.BoardUtils;
 import org.mmu.task7.GameState;
 
 /**
@@ -22,8 +23,16 @@ public final class StupidAI implements AICellNumberGenerator
         return generateRandomEmptyCellCoords();
     }
     
+    @Override
+    public int getAsInt()
+    {
+        return generateCellNumber();
+    }
+    
     /**
      * Метод генерации случайной пары "подходящих" координат
+     *
+     * @apiNote Предварительно нужен вызов {@link GameState#noMoreWinMoves()} иначе возможно зацикливание!
      *
      * @return Номер ячейки в квадратной таблице
      */
@@ -37,6 +46,7 @@ public final class StupidAI implements AICellNumberGenerator
             colIndex = GameState.rand.nextInt(boardSize);
         }
         while (!GameState.getCurrent().checkCoords(rowIndex, colIndex));
-        return GameState.Utils.convertCoordsToCellNumber(rowIndex, colIndex);
+        return BoardUtils.convertCoordsToCellNumber(rowIndex, colIndex);
     }
+    
 }

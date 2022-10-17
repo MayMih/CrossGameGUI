@@ -21,6 +21,12 @@ public final class LowAI implements AICellNumberGenerator
         return generateNearbyCoords(false);
     }
     
+    @Override
+    public int getAsInt()
+    {
+        return generateCellNumber();
+    }
+    
     /**
      * Генерирует номер клетки соседней с одной из имеющихся у ПК, если таких нет, то случайные координаты пустой клетки
      *
@@ -75,4 +81,6 @@ public final class LowAI implements AICellNumberGenerator
         }
         return resultCell;
     }
+    
+
 }
